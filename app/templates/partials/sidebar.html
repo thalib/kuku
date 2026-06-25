@@ -1,0 +1,19 @@
+<div class="offcanvas offcanvas-start bg-dark text-light" tabindex="-1" id="offcanvasSidebar">
+    <div class="offcanvas-header border-bottom border-secondary">
+        <h5 class="offcanvas-title d-flex align-items-center gap-2">
+            <i class="bi bi-star-fill"></i> Kuku
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <nav class="offcanvas-body p-3">
+        <ul class="nav flex-column gap-1">
+            {% for item in nav_items %}
+            <li class="nav-item">
+                <a class="nav-link rounded {% if item.active %}bg-primary text-white{% else %}text-light{% endif %}" href="{{ item.url }}">
+                    <i class="bi {{ item.icon }} me-2"></i>{{ item.name }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+</div>

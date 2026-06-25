@@ -12,6 +12,7 @@
 - No Docker, Redis, PostgreSQL, Kubernetes, or microservices.
 - Single executable distribution.
 - Runs completely offline except AI features.
+- Use 100% Bootstrap CSS classes for all styling. Custom CSS is allowed only when unavoidable or strictly mandatory.
 
 ## Priority & Source of Truth
 
@@ -19,8 +20,9 @@
 2. `SPEC.md` — architecture, UI/UX, components, routing, services, templates; follow and update when behavior changes.
 3. `AGENTS.md`
 4. Official documentation
-  - Use Context7 MCP server to fetch the latest documentation.
-  - `prd/`: ignore unless explicitly provided; use only the provided file, never cross-reference.
+
+- Use Context7 MCP server to fetch the latest documentation.
+- `prd/`: ignore unless explicitly provided; use only the provided file, never cross-reference.
 
 ## Best Practices
 
@@ -30,6 +32,7 @@
 - Never guess, invent patterns, refactor unrelated code, or cache backend data between sessions.
 - If blocked or uncertain, state: `INSUFFICIENT INFORMATION`.
 - Use the Playwright MCP server to test the implementation.
+- `README.md` is the very quick minimal quick start file to getting the app up and running.
 
 ## Workflow
 

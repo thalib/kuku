@@ -2,7 +2,7 @@
 
 ## Overview
 
-`kuku` is a desktop-web hybrid business application built with Python. It runs as a native desktop window (pywebview) or a local web server, using FastAPI on the backend with HTMX for dynamic UI interactions.
+`kuku` is "Kuku" — a desktop-web hybrid business application built with Python. It runs as a native desktop window (pywebview) or a local web server, using FastAPI on the backend with HTMX for dynamic UI interactions.
 
 ## Architecture
 
@@ -62,8 +62,8 @@ kuku/
 
 - Bootstrap 5.3 responsive layout
 - HTMX for dynamic partial updates (no full page reloads)
-- Sidebar navigation with: Dashboard, Transactions, GST, Reports
-- Theme support: [TODO — light/dark]
+- Sidebar navigation (offcanvas): Dashboard, Transactions, GST, Reports
+- Theme support: dark (default via Bootstrap data-bs-theme)
 
 ## Services
 
@@ -73,16 +73,17 @@ kuku/
 
 ## Testing
 
-- Framework: [TODO — pytest]
+- Framework: pytest
 - Run: `uv run pytest`
 - Coverage: report after each run
 - Integration tests use Playwright for UI verification
+- TDD: write failing test → implement → make it pass
 
 ## Configuration
 
-| Key              | Default              | Description         |
-|------------------|----------------------|---------------------|
-| `APP_HOST`       | `127.0.0.1`         | Server bind host    |
-| `APP_PORT`       | `8000`               | Server bind port    |
-| `OPENAI_API_KEY` | (env)                | OpenAI API key      |
-| `DB_PATH`        | `kuku.db`           | SQLite database file |
+| Key              | Default              | Description          |
+|------------------|----------------------|----------------------|
+| `APP_HOST`       | `127.0.0.1`          | Server bind host     |
+| `APP_PORT`       | `8000`               | Server bind port     |
+| `OPENAI_API_KEY` | (env)                | OpenAI API key       |
+| `DB_PATH`        | `sqlite.db`          | SQLite database file |
