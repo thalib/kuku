@@ -5,56 +5,28 @@ DB_PATH = "kuku.db"
 
 NAV_GROUPS = [
     {
-        "label": "Workspace",
+        "label": None,
         "links": [
             {"name": "Dashboard", "url": "/", "icon": "bi-speedometer2"},
         ],
     },
     {
-        "label": "Items",
+        "label": "BANKS",
         "links": [
-            {"name": "Categories", "url": "#", "icon": "bi-tags"},
-            {"name": "Products", "url": "#", "icon": "bi-box-seam"},
-            {"name": "Inventory", "url": "#", "icon": "bi-clipboard-data"},
+            {"name": "Manage", "url": "/banks/manage", "icon": "bi-bank"},
+            {"name": "Transaction", "url": "/banks/transactions", "icon": "bi-arrow-left-right"},
         ],
     },
     {
-        "label": "Sales",
+        "label": "REPORTS",
         "links": [
-            {"name": "Customers", "url": "#", "icon": "bi-people"},
-            {"name": "Estimates", "url": "#", "icon": "bi-receipt"},
-            {"name": "Invoices", "url": "#", "icon": "bi-bag-check"},
-            {"name": "Payments", "url": "#", "icon": "bi-cash-coin"},
+            {"name": "Reports", "url": "/reports", "icon": "bi-bar-chart"},
         ],
     },
     {
-        "label": "Purchase",
+        "label": "ADMIN",
         "links": [
-            {"name": "Vendors", "url": "#", "icon": "bi-truck"},
-            {"name": "Purchase Orders", "url": "#", "icon": "bi-file-earmark-text"},
-            {"name": "Bills", "url": "#", "icon": "bi-receipt-cutoff"},
+            {"name": "Settings", "url": "/settings", "icon": "bi-gear"},
         ],
     },
-    {
-        "label": "Admin",
-        "links": [
-            {"name": "Settings", "url": "#", "icon": "bi-gear"},
-            {"name": "Branch", "url": "#", "icon": "bi-diagram-3"},
-            {"name": "Import / Export", "url": "#", "icon": "bi-arrow-left-right"},
-            {"name": "Collections", "url": "#", "icon": "bi-table"},
-        ],
-    },
-]
-
-QUICK_LINKS = [
-    {"name": "Invoices", "url": "#", "color": "dark"},
-    {"name": "Estimates", "url": "#", "color": "dark"},
-    {"name": "Payments", "url": "#", "color": "dark"},
-    {"name": "Customers", "url": "#", "color": "dark"},
-    {"name": "Products", "url": "#", "color": "primary"},
-    {"name": "Inventory", "url": "#", "color": "primary"},
-    {"name": "Categories", "url": "#", "color": "primary"},
-    {"name": "Vendors", "url": "#", "color": "success"},
-    {"name": "Purchase Orders", "url": "#", "color": "success"},
-    {"name": "Bills", "url": "#", "color": "success"},
 ]

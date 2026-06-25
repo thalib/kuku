@@ -27,17 +27,6 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm my-3">
-        <div class="card-body py-3">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="text-muted text-uppercase fw-semibold small">Quick Links</span>
-                {% for link in quick_links %}
-                <a href="{{ link["url"] }}" class="btn btn-sm btn-{{ link["color"] }}" data-testid="dashboard-quick-link-{{ loop.index }}">{{ link["name"] }}</a>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
     <section class="card border-0 shadow-sm mb-3">
         <div class="card-body p-1 m-1">
             <div class="py-3 border-bottom">

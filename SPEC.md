@@ -2,94 +2,14 @@
 
 ## Overview
 
-`kuku` is "Kuku" — a desktop-web hybrid business application built with Python. It runs as a native desktop window (pywebview) or a local web server, using FastAPI on the backend with HTMX for dynamic UI interactions.
+`kuku` is "Kuku" — a desktop-web hybrid business application built with Python.
 
-## Architecture
+### Sidebar Navigation Groups
 
-### Stack
-
-| Layer       | Technology          |
-|-------------|---------------------|
-| Backend     | FastAPI, Python     |
-| Database    | SQLite              |
-| Frontend    | Jinja2, HTMX, Bootstrap 5.3 |
-| Desktop     | pywebview           |
-| AI          | OpenAI API          |
-| Packaging   | Single executable (PyInstaller) |
-
-### Runtime Modes
-
-- **Desktop** — pywebview window wrapping FastAPI (default)
-- **Browser** — FastAPI dev server at `http://localhost:8000`
-- **Network** — `uvicorn main:app --host 0.0.0.0 --port 8000` (LAN access)
-
-## Directory Structure
-
-```
-kuku/
-├── main.py              # Entry point
-├── pyproject.toml       # Project config & dependencies
-├── AGENTS.md
-├── SPEC.md
-├── app/
-│   ├── __init__.py
-│   ├── config.py        # App settings & constants
-│   ├── database.py      # SQLite connection & setup
-│   ├── models/          # Pydantic models
-│   ├── routers/         # FastAPI route modules
-│   ├── services/        # Business logic
-│   ├── static/          # CSS, JS, images
-│   └── templates/       # Jinja2 HTML templates
-│       ├── layouts/     # Base layouts
-│       ├── partials/    # HTMX partials
-│       └── pages/       # Full page templates
-└── tests/
-```
-
-## Routes
-
-| Method | Path | Description   |
-|--------|------|---------------|
-| GET    | /    | Dashboard     |
-
-[TODO] Define routes as features are implemented.
-
-## Database Schema
-
-[TODO] Define tables as features are implemented.
-
-## UI/UX
-
-- Bootstrap 5.3 responsive layout
-- HTMX for dynamic partial updates (no full page reloads)
-- Fixed top navbar with sidebar toggle button (`bi-layout-sidebar-inset-reverse`)
-- Sidebar is a permanent panel (width 248px) below navbar, toggleable collapse/expand via button
-- Sidebar nav groups: Workspace (Dashboard), Items (Categories, Products, Inventory), Sales (Customers, Estimates, Invoices, Payments), Purchase (Vendors, Purchase Orders, Bills), Admin (Settings, Branch, Import/Export, Collections)
-- Active nav item highlighted with `bg-primary`
-- Sidebar footer shows app branding
-- Navbar right: user dropdown with Profile and Logout
-- Main content area has `bg-light` background
-- Theme: dark navbar/sidebar, light main content
-
-## Services
-
-### AI Service (OpenAI)
-
-[TODO] Define integration points for OpenAI API calls.
-
-## Testing
-
-- Framework: pytest
-- Run: `uv run pytest`
-- Coverage: report after each run
-- Integration tests use Playwright for UI verification
-- TDD: write failing test → implement → make it pass
-
-## Configuration
-
-| Key              | Default              | Description          |
-|------------------|----------------------|----------------------|
-| `APP_HOST`       | `127.0.0.1`          | Server bind host     |
-| `APP_PORT`       | `8000`               | Server bind port     |
-| `OPENAI_API_KEY` | (env)                | OpenAI API key       |
-| `DB_PATH`        | `sqlite.db`          | SQLite database file |
+| Group   | Link         | URL                      |
+|---------|--------------|--------------------------|
+|         | Dashboard    | /                        |
+| BANKS   | Manage       | /banks/manage            |
+| BANKS   | Transaction  | /banks/transactions      |
+| REPORTS | Reports      | /reports                 |
+| ADMIN   | Settings     | /settings                |
