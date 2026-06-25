@@ -62,8 +62,14 @@ kuku/
 
 - Bootstrap 5.3 responsive layout
 - HTMX for dynamic partial updates (no full page reloads)
-- Sidebar navigation (offcanvas): Dashboard, Transactions, GST, Reports
-- Theme support: dark (default via Bootstrap data-bs-theme)
+- Fixed top navbar with sidebar toggle button (`bi-layout-sidebar-inset-reverse`)
+- Sidebar is a permanent panel (width 248px) below navbar, toggleable collapse/expand via button
+- Sidebar nav groups: Workspace (Dashboard), Items (Categories, Products, Inventory), Sales (Customers, Estimates, Invoices, Payments), Purchase (Vendors, Purchase Orders, Bills), Admin (Settings, Branch, Import/Export, Collections)
+- Active nav item highlighted with `bg-primary`
+- Sidebar footer shows app branding
+- Navbar right: user dropdown with Profile and Logout
+- Main content area has `bg-light` background
+- Theme: dark navbar/sidebar, light main content
 
 ## Services
 
