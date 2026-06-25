@@ -9,9 +9,9 @@
     <style>
         :root { --kuku-sidebar-width: 248px; }
         .kuku-shell { min-height: 100vh; }
-        .kuku-sidebar-shell { width: var(--kuku-sidebar-width); transition: width .2s ease; overflow: hidden; }
-        .kuku-sidebar-shell--collapsed { width: 0; border: none !important; }
-        .app-sidebar { width: var(--kuku-sidebar-width); }
+        .kuku-sidebar-shell { width: var(--kuku-sidebar-width); flex-shrink: 0; transition: width .2s ease; overflow: hidden; }
+        .kuku-sidebar-shell--collapsed { width: 0; }
+        .app-sidebar { width: 100%; flex-shrink: 0; }
         .sidebar-link { white-space: nowrap; }
     </style>
     {% block extra_head %}{% endblock %}
