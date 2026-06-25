@@ -1,0 +1,19 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-3 p-xl-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Bank Accounts</h1>
+        <button class="btn btn-primary btn-sm"
+                hx-get="/banks/accounts/form"
+                hx-target="#account-form-card"
+                hx-swap="outerHTML">
+            <i class="bi bi-plus-lg me-1"></i> Add Bank Account
+        </button>
+    </div>
+
+    <div id="account-form-card"></div>
+
+    {% include "partials/bank_account_list.html" %}
+</div>
+{% endblock %}

@@ -2,14 +2,27 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from contextlib import asynccontextmanager
 from app.config import APP_NAME, NAV_GROUPS
+from app.database import init_db, close_db
+from app.routers import bank_accounts
 import os
 
-app = FastAPI(title="Kuku")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await init_db()
+    yield
+    await close_db()
+
+
+app = FastAPI(title="Kuku", lifespan=lifespan)
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 _template_dir = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=_template_dir)
+
+app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
 
 
 def _mark_active(groups, page_url):
@@ -44,11 +57,6 @@ async def dashboard(request: Request):
             "nav_groups": _mark_active(NAV_GROUPS, "/"),
         },
     )
-
-
-@app.get("/banks/manage", response_class=HTMLResponse)
-async def banks_manage(request: Request):
-    return _render_page(request, "/banks/manage", "Banks - Manage")
 
 
 @app.get("/banks/transactions", response_class=HTMLResponse)
