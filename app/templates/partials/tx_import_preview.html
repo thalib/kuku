@@ -1,0 +1,53 @@
+{% if error %}
+<div class="alert alert-danger py-2 small">{{ error }}</div>
+{% endif %}
+
+{% if transactions %}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <strong class="small text-uppercase">Preview — {{ count }} transactions found</strong>
+        <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('hx-import-area').innerHTML=''"></button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3" style="width:90px">#</th>
+                        <th style="width:90px">Date</th>
+                        <th>Narration</th>
+                        <th style="width:120px">Reference</th>
+                        <th class="text-end" style="width:100px">Debit</th>
+                        <th class="text-end" style="width:100px">Credit</th>
+                        <th class="text-end pe-3" style="width:110px">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for t in transactions %}
+                    <tr>
+                        <td class="ps-3 small text-muted">{{ loop.index }}</td>
+                        <td class="small text-nowrap">{{ t["txn_date"] }}</td>
+                        <td class="small" style="max-width:300px"><span class="d-inline-block text-truncate" style="max-width:300px" title="{{ t['narration'] }}">{{ t["narration"] or "-" }}</span></td>
+                        <td class="small text-muted">{{ t["reference"] or "-" }}</td>
+                        <td class="text-end text-danger small">{{ "{:,.2f}".format(t["debit"]) if t["debit"] else "" }}</td>
+                        <td class="text-end text-success small">{{ "{:,.2f}".format(t["credit"]) if t["credit"] else "" }}</td>
+                        <td class="text-end pe-3 small">{{ "{:,.2f}".format(t["balance"]) }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center py-2">
+        <span class="small text-muted">{{ count }} transactions ready to import</span>
+        <form hx-post="/banks/transactions/import/confirm"
+              hx-target="#hx-table-area"
+              hx-swap="innerHTML"
+              hx-on::after-request="document.getElementById('hx-import-area').innerHTML=''">
+            <input type="hidden" name="account_id" value="{{ account_id }}">
+            <input type="hidden" name="data" value='{{ transactions | tojson }}'>
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i> Confirm Import</button>
+        </form>
+    </div>
+</div>
+{% endif %}

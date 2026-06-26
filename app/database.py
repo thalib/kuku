@@ -28,6 +28,22 @@ async def init_db():
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS bank_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            txn_date TEXT NOT NULL,
+            value_date TEXT NOT NULL,
+            narration TEXT,
+            reference TEXT,
+            debit REAL NOT NULL DEFAULT 0,
+            credit REAL NOT NULL DEFAULT 0,
+            balance REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (account_id) REFERENCES bank_accounts(id)
+        )
+    """)
     await db.commit()
 
 

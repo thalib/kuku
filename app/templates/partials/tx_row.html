@@ -1,0 +1,21 @@
+<tr id="tx-row-{{ txn['id'] }}">
+    <td class="ps-3 small text-nowrap">{{ txn["txn_date"] }}</td>
+    <td class="small" style="max-width:400px"><span class="d-inline-block text-truncate" style="max-width:400px" title="{{ txn['narration'] }}">{{ txn["narration"] or "-" }}</span></td>
+    <td class="small text-muted">{{ txn["reference"] or "-" }}</td>
+    <td class="text-end text-danger small">{{ "{:,.2f}".format(txn["debit"]) if txn["debit"] else "" }}</td>
+    <td class="text-end text-success small">{{ "{:,.2f}".format(txn["credit"]) if txn["credit"] else "" }}</td>
+    <td class="text-end small">{{ "{:,.2f}".format(txn["balance"]) }}</td>
+    <td class="text-end pe-3">
+        <button class="btn btn-outline-secondary btn-sm py-0 px-1"
+                hx-get="/banks/transactions/{{ txn['id'] }}/edit"
+                hx-target="#tx-row-{{ txn['id'] }}"
+                hx-swap="outerHTML"
+                title="Edit"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-outline-danger btn-sm py-0 px-1"
+                hx-delete="/banks/transactions/{{ txn['id'] }}"
+                hx-confirm="Delete this transaction?"
+                hx-target="#tx-row-{{ txn['id'] }}"
+                hx-swap="outerHTML"
+                title="Delete"><i class="bi bi-trash"></i></button>
+    </td>
+</tr>

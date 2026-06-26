@@ -40,8 +40,6 @@ class TestDashboard:
 
 
 PAGE_CASES = [
-    ("/banks/manage", "Banks - Manage"),
-    ("/banks/transactions", "Banks - Transaction"),
     ("/reports", "Reports"),
     ("/settings", "Admin - Settings"),
 ]

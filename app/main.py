@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from app.config import APP_NAME, NAV_GROUPS
 from app.database import init_db, close_db
-from app.routers import bank_accounts
+from app.routers import bank_accounts, bank_transactions
 import os
 
 
@@ -23,6 +23,7 @@ _template_dir = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=_template_dir)
 
 app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
+app.include_router(bank_transactions.router, prefix="/banks", tags=["Transactions"])
 
 
 def _mark_active(groups, page_url):
@@ -59,9 +60,7 @@ async def dashboard(request: Request):
     )
 
 
-@app.get("/banks/transactions", response_class=HTMLResponse)
-async def banks_transactions(request: Request):
-    return _render_page(request, "/banks/transactions", "Banks - Transaction")
+
 
 
 @app.get("/reports", response_class=HTMLResponse)

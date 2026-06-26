@@ -1,0 +1,25 @@
+<form hx-post="/banks/transactions/import/preview"
+      hx-encoding="multipart/form-data"
+      hx-target="#hx-import-area"
+      hx-swap="innerHTML"
+      enctype="multipart/form-data">
+    <input type="hidden" name="account_id" value="{{ account_id }}">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+            <strong class="small text-uppercase">Import Transactions</strong>
+            <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('hx-import-area').innerHTML=''"></button>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small">Select CSV or Excel file</label>
+                    <input type="file" name="file" class="form-control form-control-sm" accept=".csv,.xls,.xlsx" required>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-eye me-1"></i> Preview</button>
+                </div>
+            </div>
+            <div class="form-text small mt-2">Supported: CSV (HDFC, IDBI, or similar formats), XLS, XLSX. File is parsed and previewed before importing.</div>
+        </div>
+    </div>
+</form>

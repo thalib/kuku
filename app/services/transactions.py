@@ -1,0 +1,338 @@
+import aiosqlite
+import csv
+import io
+import re
+from datetime import datetime, date, timezone
+from app.models.transactions import TransactionCreate, TransactionUpdate
+
+
+MONTHS = [
+    (1, "JAN"), (2, "FEB"), (3, "MAR"), (4, "APR"),
+    (5, "MAY"), (6, "JUN"), (7, "JUL"), (8, "AUG"),
+    (9, "SEP"), (10, "OCT"), (11, "NOV"), (12, "DEC"),
+]
+
+
+def _row_to_dict(row) -> dict | None:
+    if row is None:
+        return None
+    return dict(row)
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_amount(val: str) -> float:
+    if not val or not val.strip():
+        return 0.0
+    cleaned = val.strip().replace(",", "").replace("INR", "")
+    return float(cleaned)
+
+
+def _parse_date_str(val: str) -> date:
+    val = val.strip()
+    for fmt in ("%d/%m/%Y %H:%M:%S.%f", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y",
+                "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d",
+                "%d/%m/%y"):
+        try:
+            return datetime.strptime(val, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Cannot parse date: {val}")
+
+
+def _detect_format(headers: list[str]) -> dict[str, int]:
+    lower = [h.strip().lower() for h in headers]
+    mapping = {}
+
+    date_indices = [i for i, h in enumerate(lower) if h in ("date", "txn date", "txndate", "transaction date")]
+    value_dt_indices = [i for i, h in enumerate(lower) if "value dt" in h or h in ("value date",)]
+    narration_indices = [i for i, h in enumerate(lower) if h in ("narration", "description", "desc", "particulars")]
+    ref_indices = [i for i, h in enumerate(lower) if "chq" in h or "ref" in h or h in ("cheque no", "cheque")]
+
+    withdrawal_indices = [i for i, h in enumerate(lower) if "withdrawal" in h]
+    deposit_indices = [i for i, h in enumerate(lower) if "deposit" in h or "cr" in h and "dr" not in h]
+    balance_indices = [i for i, h in enumerate(lower) if "balance" in h or "closing" in h]
+
+    crdr_indices = [i for i, h in enumerate(lower) if h in ("cr/dr", "transaction type", "type")]
+    amount_indices = [i for i, h in enumerate(lower) if h in ("amount (inr)", "amount", "amount(rupees)")]
+
+    if date_indices:
+        mapping["txn_date"] = date_indices[0]
+    if value_dt_indices:
+        mapping["value_date"] = value_dt_indices[0]
+    if narration_indices:
+        mapping["narration"] = narration_indices[0]
+    if ref_indices:
+        mapping["reference"] = ref_indices[0]
+
+    if withdrawal_indices and deposit_indices:
+        mapping["type"] = "dual"
+        mapping["debit"] = withdrawal_indices[0]
+        mapping["credit"] = deposit_indices[0]
+    elif crdr_indices and amount_indices:
+        mapping["type"] = "single"
+        mapping["crdr"] = crdr_indices[0]
+        mapping["amount"] = amount_indices[0]
+    else:
+        mapping["type"] = "dual"
+        credit_guess = [i for i, h in enumerate(lower) if "credit" in h or "cr" in h]
+        debit_guess = [i for i, h in enumerate(lower) if "debit" in h or "dr" in h]
+        if credit_guess and debit_guess:
+            mapping["credit"] = credit_guess[0]
+            mapping["debit"] = debit_guess[0]
+        else:
+            raise ValueError("Cannot detect transaction format. Headers: " + ", ".join(headers))
+
+    if balance_indices:
+        mapping["balance"] = balance_indices[0]
+
+    return mapping
+
+
+def parse_transactions(content: str, filename: str) -> list[dict]:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    rows = []
+
+    if ext == "csv":
+        rows = _parse_csv(content)
+    elif ext in ("xls", "xlsx"):
+        raise ValueError("Binary format — use parse_excel for bytes input")
+    else:
+        rows = _parse_csv(content)
+
+    return rows
+
+
+def parse_csv_rows(content: str) -> list[dict]:
+    return _parse_csv(content)
+
+
+def parse_excel_bytes(data: bytes, filename: str) -> list[dict]:
+    import openpyxl
+    import xlrd
+
+    ext = filename.rsplit(".", 1)[-1].lower()
+    raw_rows = []
+
+    if ext == "xlsx":
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True)
+        ws = wb.active
+        for ws_row in ws.iter_rows(values_only=True):
+            raw_rows.append([str(c) if c is not None else "" for c in ws_row])
+    elif ext == "xls":
+        wb = xlrd.open_workbook(file_contents=data)
+        ws = wb.sheet_by_index(0)
+        for r in range(ws.nrows):
+            raw_rows.append([str(ws.cell_value(r, c)).strip() for c in range(ws.ncols)])
+    else:
+        raise ValueError(f"Unsupported Excel format: {ext}")
+
+    if len(raw_rows) < 2:
+        return []
+
+    headers = raw_rows[0]
+    mapping = _detect_format(headers)
+    return _map_rows(raw_rows[1:], mapping)
+
+
+def _parse_csv(content: str) -> list[dict]:
+    lines = content.splitlines(True)
+    if not lines:
+        return []
+    reader = csv.reader(lines)
+    all_rows = list(reader)
+    if len(all_rows) < 2:
+        return []
+
+    headers = all_rows[0]
+    mapping = _detect_format(headers)
+    return _map_rows(all_rows[1:], mapping)
+
+
+def _map_rows(raw_rows: list[list[str]], mapping: dict[str, int]) -> list[dict]:
+    results = []
+    fmt_type = mapping.get("type", "dual")
+
+    for row in raw_rows:
+        if not any(cell.strip() for cell in row):
+            continue
+
+        txn = _row_at(row, mapping.get("txn_date"))
+        val_dt = _row_at(row, mapping.get("value_date"))
+
+        if not txn:
+            continue
+
+        try:
+            txn_date = _parse_date_str(txn)
+        except ValueError:
+            continue
+
+        value_date = _parse_date_str(val_dt) if val_dt else txn_date
+
+        narration = _row_at(row, mapping.get("narration"))
+        reference = _row_at(row, mapping.get("reference"))
+
+        if fmt_type == "dual":
+            debit = _parse_amount(_row_at(row, mapping.get("debit")))
+            credit = _parse_amount(_row_at(row, mapping.get("credit")))
+        else:
+            amount = _parse_amount(_row_at(row, mapping.get("amount")))
+            crdr = _row_at(row, mapping.get("crdr")).strip().lower()
+            debit = amount if crdr in ("dr", "dr.", "debit", "d") else 0.0
+            credit = amount if crdr in ("cr", "cr.", "credit", "c") else 0.0
+
+        balance = _parse_amount(_row_at(row, mapping.get("balance")))
+
+        results.append({
+            "txn_date": txn_date.isoformat(),
+            "value_date": value_date.isoformat(),
+            "narration": narration or "",
+            "reference": reference or "",
+            "debit": round(debit, 2),
+            "credit": round(credit, 2),
+            "balance": round(balance, 2),
+        })
+
+    return results
+
+
+def _row_at(row: list[str], idx: int | None) -> str:
+    if idx is None or idx >= len(row):
+        return ""
+    return row[idx].strip()
+
+
+async def create_transaction(db: aiosqlite.Connection, data: TransactionCreate) -> dict:
+    now = _now()
+    cursor = await db.execute(
+        """INSERT INTO bank_transactions
+           (account_id, txn_date, value_date, narration, reference, debit, credit, balance, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (data.account_id, data.txn_date.isoformat(), data.value_date.isoformat(),
+         data.narration, data.reference, data.debit, data.credit, data.balance, now, now),
+    )
+    await db.commit()
+    return await get_transaction(db, cursor.lastrowid)
+
+
+async def bulk_create_transactions(db: aiosqlite.Connection, account_id: int, txns: list[dict]) -> int:
+    now = _now()
+    rows = []
+    for t in txns:
+        rows.append((
+            account_id, t["txn_date"], t["value_date"],
+            t.get("narration", ""), t.get("reference", ""),
+            t.get("debit", 0), t.get("credit", 0),
+            t.get("balance", 0), now, now,
+        ))
+    await db.executemany(
+        """INSERT INTO bank_transactions
+           (account_id, txn_date, value_date, narration, reference, debit, credit, balance, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        rows,
+    )
+    await db.commit()
+    return len(rows)
+
+
+async def get_transaction(db: aiosqlite.Connection, txn_id: int) -> dict | None:
+    cursor = await db.execute("SELECT * FROM bank_transactions WHERE id = ?", (txn_id,))
+    return _row_to_dict(await cursor.fetchone())
+
+
+async def update_transaction(db: aiosqlite.Connection, txn_id: int, data: TransactionUpdate) -> dict | None:
+    existing = await get_transaction(db, txn_id)
+    if not existing:
+        return None
+    sets, vals = [], []
+    field_map = {
+        "txn_date": lambda v: v.isoformat(),
+        "value_date": lambda v: v.isoformat(),
+        "narration": lambda v: v,
+        "reference": lambda v: v,
+        "debit": lambda v: v,
+        "credit": lambda v: v,
+        "balance": lambda v: v,
+    }
+    for key, transform in field_map.items():
+        val = getattr(data, key)
+        if val is not None:
+            sets.append(f"{key} = ?")
+            vals.append(transform(val))
+    if not sets:
+        return existing
+    sets.append("updated_at = ?")
+    vals.append(_now())
+    vals.append(txn_id)
+    await db.execute(
+        f"UPDATE bank_transactions SET {', '.join(sets)} WHERE id = ?",
+        vals,
+    )
+    await db.commit()
+    return await get_transaction(db, txn_id)
+
+
+async def delete_transaction(db: aiosqlite.Connection, txn_id: int) -> bool:
+    cursor = await db.execute("DELETE FROM bank_transactions WHERE id = ?", (txn_id,))
+    await db.commit()
+    return cursor.rowcount > 0
+
+
+async def list_transactions(
+    db: aiosqlite.Connection, account_id: int, year: int, month: int
+) -> list[dict]:
+    start_date = f"{year:04d}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1:04d}-01-01"
+    else:
+        end_date = f"{year:04d}-{month + 1:02d}-01"
+    cursor = await db.execute(
+        """SELECT * FROM bank_transactions
+           WHERE account_id = ? AND txn_date >= ? AND txn_date < ?
+           ORDER BY txn_date, id""",
+        (account_id, start_date, end_date),
+    )
+    return [_row_to_dict(r) for r in await cursor.fetchall()]
+
+
+async def get_available_years(db: aiosqlite.Connection, account_id: int) -> list[int]:
+    cursor = await db.execute(
+        "SELECT DISTINCT strftime('%Y', txn_date) AS yr FROM bank_transactions WHERE account_id = ? ORDER BY yr",
+        (account_id,),
+    )
+    rows = await cursor.fetchall()
+    return [int(r[0]) for r in rows]
+
+
+async def get_available_months(db: aiosqlite.Connection, account_id: int, year: int) -> list[int]:
+    cursor = await db.execute(
+        "SELECT DISTINCT strftime('%m', txn_date) AS m FROM bank_transactions WHERE account_id = ? AND strftime('%Y', txn_date) = ? ORDER BY m",
+        (account_id, str(year)),
+    )
+    rows = await cursor.fetchall()
+    return [int(r[0]) for r in rows]
+
+
+async def get_summary(db: aiosqlite.Connection, account_id: int, year: int, month: int) -> dict:
+    start_date = f"{year:04d}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1:04d}-01-01"
+    else:
+        end_date = f"{year:04d}-{month + 1:02d}-01"
+    cursor = await db.execute(
+        """SELECT COALESCE(SUM(debit), 0) AS total_debit,
+                  COALESCE(SUM(credit), 0) AS total_credit,
+                  COUNT(*) AS txn_count
+           FROM bank_transactions
+           WHERE account_id = ? AND txn_date >= ? AND txn_date < ?""",
+        (account_id, start_date, end_date),
+    )
+    row = await cursor.fetchone()
+    return {
+        "total_debit": round(row["total_debit"], 2),
+        "total_credit": round(row["total_credit"], 2),
+        "txn_count": row["txn_count"],
+    }

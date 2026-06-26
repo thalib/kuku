@@ -1,0 +1,110 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-3 p-xl-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Transactions</h1>
+        <div>
+            <button class="btn btn-outline-primary btn-sm me-2" id="btnImport">
+                <i class="bi bi-upload me-1"></i> Import
+            </button>
+            <span class="dropdown d-inline-block">
+                <button class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" id="btnExport" style="display:none">
+                    <i class="bi bi-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item small" id="expCSV" href="#"><i class="bi bi-filetype-csv me-1"></i> CSV</a></li>
+                    <li><a class="dropdown-item small" id="expXLSX" href="#"><i class="bi bi-file-earmark-excel me-1"></i> Excel</a></li>
+                    <li><a class="dropdown-item small" id="expPDF" href="#"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a></li>
+                </ul>
+            </span>
+        </div>
+    </div>
+
+    {% if accounts %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <select id="selAccount" name="account_id" class="form-select form-select-sm"
+                            hx-get="/banks/transactions/filters"
+                            hx-target="#hx-filters"
+                            hx-trigger="change"
+                            hx-swap="innerHTML">
+                        <option value="">-- Select Account --</option>
+                        {% for a in accounts %}
+                        <option value="{{ a['id'] }}">{{ a["bank_name"] }} - ****{{ a["account_number"][-4:] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-flex gap-2 align-items-center" id="hx-filters"></div>
+                <div class="col-auto">
+                    <button type="button" class="btn btn-sm btn-primary" id="btnApply"><i class="bi bi-filter me-1"></i> View</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="hx-import-area"></div>
+    <div id="hx-table-area"></div>
+
+    {% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-bank fs-1 d-block mb-2"></i>
+            <p class="mb-0">No active bank accounts. Add one in <a href="/banks/manage">Manage</a> first.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_scripts %}
+<script>
+(function(){
+    function getFilters(){
+        var sel = document.getElementById('selAccount');
+        var yr = document.getElementById('selYear');
+        var mo = document.getElementById('selMonth');
+        return {
+            account_id: sel ? sel.value : '',
+            year: yr ? yr.value : '',
+            month: mo ? mo.value : ''
+        };
+    }
+    function loadTable(){
+        var f = getFilters();
+        if (!f.account_id || !f.year || !f.month) return;
+        htmx.ajax('GET', '/banks/transactions/table?account_id='+f.account_id+'&year='+f.year+'&month='+f.month, '#hx-table-area');
+        document.getElementById('btnExport').style.display = '';
+        var base = '/banks/transactions/export/';
+        var q = '?account_id='+f.account_id+'&year='+f.year+'&month='+f.month;
+        document.getElementById('expCSV').href = base+'csv'+q;
+        document.getElementById('expXLSX').href = base+'xlsx'+q;
+        document.getElementById('expPDF').href = base+'pdf'+q;
+    }
+    document.getElementById('btnApply').addEventListener('click', loadTable);
+    document.addEventListener('change', function(e){
+        if (e.target.id === 'selYear' || e.target.id === 'selMonth') loadTable();
+    });
+
+    document.getElementById('btnImport').addEventListener('click', function(){
+        var area = document.getElementById('hx-import-area');
+        if (area.innerHTML.trim()) { area.innerHTML = ''; return; }
+        var sel = document.getElementById('selAccount');
+        if (!sel || !sel.value) {
+            area.innerHTML = '<div class="alert alert-warning py-2 small">Select a bank account first.</div>';
+            return;
+        }
+        htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#hx-import-area');
+    });
+
+    document.addEventListener('txImported', function(){
+        var area = document.getElementById('hx-import-area');
+        if (area) area.innerHTML = '';
+    });
+
+    document.addEventListener('txDeleted', function(){ loadTable(); });
+})();
+</script>
+{% endblock %}
+{% endblock %}
