@@ -1,6 +1,6 @@
 <tr id="tx-row-{{ txn['id'] }}">
     <td class="ps-3 small text-nowrap">{{ txn["txn_date"] }}</td>
-    <td class="small" style="max-width:400px"><span class="d-inline-block text-truncate" style="max-width:400px" title="{{ txn['narration'] }}">{{ txn["narration"] or "-" }}</span></td>
+    <td class="small" style="white-space:normal">{{ txn["narration"] or "-" }}</td>
     <td class="small text-muted">{{ txn["reference"] or "-" }}</td>
     <td class="text-end text-danger small">{{ "{:,.2f}".format(txn["debit"]) if txn["debit"] else "" }}</td>
     <td class="text-end text-success small">{{ "{:,.2f}".format(txn["credit"]) if txn["credit"] else "" }}</td>

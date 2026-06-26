@@ -37,7 +37,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="d-flex gap-2 align-items-center" id="hx-filters"></div>
+                <div class="col-auto d-flex gap-2 align-items-center" id="hx-filters"></div>
                 <div class="col-auto">
                     <button type="button" class="btn btn-sm btn-primary" id="btnApply"><i class="bi bi-filter me-1"></i> View</button>
                 </div>
@@ -83,8 +83,23 @@
         document.getElementById('expPDF').href = base+'pdf'+q;
     }
     document.getElementById('btnApply').addEventListener('click', loadTable);
+    document.addEventListener('click', function(e){
+        if (e.target.id === 'btnFilterImport' || e.target.closest('#btnFilterImport')) {
+            var sel = document.getElementById('selAccount');
+            if (sel && sel.value) {
+                htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#hx-import-area');
+            }
+        }
+    });
     document.addEventListener('change', function(e){
-        if (e.target.id === 'selYear' || e.target.id === 'selMonth') loadTable();
+        if (e.target.id === 'selYear') {
+            var sel = document.getElementById('selAccount');
+            htmx.ajax('GET', '/banks/transactions/filters?account_id='+sel.value+'&selected_year='+e.target.value, '#hx-filters');
+        }
+        if (e.target.id === 'selMonth') loadTable();
+    });
+    document.addEventListener('htmx:afterSwap', function(e){
+        if (e.detail.target.id === 'hx-filters') loadTable();
     });
 
     document.getElementById('btnImport').addEventListener('click', function(){
@@ -101,6 +116,11 @@
     document.addEventListener('txImported', function(){
         var area = document.getElementById('hx-import-area');
         if (area) area.innerHTML = '';
+        var sel = document.getElementById('selAccount');
+        if (sel && sel.value) {
+            htmx.ajax('GET', '/banks/transactions/filters?account_id='+sel.value, '#hx-filters');
+            loadTable();
+        }
     });
 
     document.addEventListener('txDeleted', function(){ loadTable(); });

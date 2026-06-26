@@ -85,21 +85,21 @@ class TestTransactionsPage:
 
 
 class TestTransactionsFilters:
-    def test_filters_returns_200(self, client, _seed_account):
-        resp = client.get(f"/banks/transactions/filters?account_id={_seed_account['id']}")
+    def test_filters_returns_200(self, client, _seed_transactions):
+        resp = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}")
         assert resp.status_code == 200
         assert "selYear" in resp.text
         assert "selMonth" in resp.text
 
-    def test_filters_show_months(self, client, _seed_account):
-        body = client.get(f"/banks/transactions/filters?account_id={_seed_account['id']}").text
-        assert "JAN" in body
+    def test_filters_only_show_months_with_data(self, client, _seed_transactions):
+        body = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}").text
         assert "APR" in body
+        assert "JAN" not in body
 
-    def test_filters_defaults_to_current_year_when_no_data(self, client, _seed_account):
-        from datetime import date
+    def test_filters_show_no_data_when_no_transactions(self, client, _seed_account):
         body = client.get(f"/banks/transactions/filters?account_id={_seed_account['id']}").text
-        assert str(date.today().year) in body
+        assert "No transactions uploaded" in body
+        assert "selYear" not in body
 
     def test_filters_show_available_years_with_data(self, client, _seed_transactions):
         body = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}").text

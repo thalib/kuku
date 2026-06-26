@@ -53,17 +53,18 @@ async def transactions_page(request: Request):
 
 
 @router.get("/transactions/filters", response_class=HTMLResponse)
-async def transactions_filters(request: Request, account_id: int):
+async def transactions_filters(request: Request, account_id: int, selected_year: int | None = None):
     db = await get_db()
     years = await tx_svc.get_available_years(db, account_id)
     if not years:
-        current_year = date.today().year
-        years = list(range(current_year, current_year + 2))
-    latest = max(years)
-    months = await tx_svc.get_available_months(db, account_id, latest)
-    if not months:
-        months = list(range(1, 13))
-    ctx = {"account_id": account_id, "years": years, "months": MONTHS, "selected_year": latest, "selected_month": min(months)}
+        ctx = {"no_data": True, "account_id": account_id}
+        return templates.TemplateResponse(request, "partials/tx_filters.html", ctx)
+    yr = selected_year if selected_year and selected_year in years else max(years)
+    avail = await tx_svc.get_available_months(db, account_id, yr)
+    month_map = dict(MONTHS)
+    months = [(m, month_map[m]) for m in avail]
+    ctx = {"no_data": False, "account_id": account_id, "years": years,
+           "months": months, "selected_year": yr, "selected_month": min(avail)}
     return templates.TemplateResponse(request, "partials/tx_filters.html", ctx)
 
 

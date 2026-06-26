@@ -86,11 +86,16 @@ Table name: `bank_accounts`. Created by `init_db()`.
 
 ### UI Layout
 
-- Filter bar: account dropdown → year dropdown → month dropdown (MM - MMM)
+- Filter bar: account dropdown, year dropdown, month dropdown (MM - MMM) — all in a single row
+- Year dropdown shows only years with uploaded transactions for the selected account
+- Month dropdown shows only months with data for the selected year
+- When no transactions exist for an account, a "No transactions uploaded" message with an Upload button is shown instead of year/month dropdowns
 - Summary cards: Total Debit, Total Credit, Net, Transaction Count
 - Transaction table: compact Bootstrap `table-sm table-hover`
-- Actions per row: Edit (inline form via HTMX), Delete (with confirmation)
+- Narration column: multi-line, no truncation
+- Actions per row: Edit (inline form via HTMX, textarea for narration), Delete (with confirmation)
 - Import: file upload → preview table → confirm → bulk insert
+- After successful import, filters and table auto-refresh
 - Export: CSV, Excel (xlsx), PDF
 
 ### Routes
@@ -98,7 +103,7 @@ Table name: `bank_accounts`. Created by `init_db()`.
 | Method | URL                                             | Purpose                              |
 |--------|-------------------------------------------------|--------------------------------------|
 | GET    | /banks/transactions                             | Page                                 |
-| GET    | /banks/transactions/filters?account_id=         | Year/month dropdowns (HTMX)          |
+| GET    | /banks/transactions/filters?account_id=&selected_year= | Year/month dropdowns (HTMX)          |
 | GET    | /banks/transactions/table?account_id=&year=&month= | Transaction table (HTMX)            |
 | GET    | /banks/transactions/import/form?account_id=     | Import file upload form              |
 | POST   | /banks/transactions/import/preview              | Parse file, show preview             |
