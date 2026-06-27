@@ -13,6 +13,7 @@ from app.database import get_db
 from app.services import bank_accounts as bank_svc
 from app.services import transactions as tx_svc
 from app.models.transactions import TransactionUpdate
+from app.utils.nav import mark_active_nav
 
 router = APIRouter()
 
@@ -26,19 +27,11 @@ MONTHS = [
 ]
 
 
-def _mark_active(groups, page_url):
-    groups = [dict(g) for g in groups]
-    for g in groups:
-        original = list(g.get("links", []))
-        g["links"] = [{**lk, "active": lk["url"] == page_url} for lk in original]
-    return groups
-
-
 def _base_ctx(request: Request, page_url: str, page_name: str):
     return {
         "app_name": APP_NAME,
         "page_title": f"{page_name} - Kuku",
-        "nav_groups": _mark_active(NAV_GROUPS, page_url),
+        "nav_groups": mark_active_nav(NAV_GROUPS, page_url),
     }
 
 

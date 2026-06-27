@@ -1,0 +1,19 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-3 p-xl-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Transaction Categories</h1>
+        <button class="btn btn-primary btn-sm"
+                hx-get="/banks/categories/form"
+                hx-target="#category-form-card"
+                hx-swap="outerHTML">
+            <i class="bi bi-plus-lg me-1"></i> Add Category
+        </button>
+    </div>
+
+    <div id="category-form-card"></div>
+
+    {% include "partials/category_list.html" %}
+</div>
+{% endblock %}

@@ -8,19 +8,12 @@ from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import bank_accounts as bank_svc
 from app.models.bank_accounts import BankAccountCreate
+from app.utils.nav import mark_active_nav
 
 router = APIRouter()
 
 _template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 templates = Jinja2Templates(directory=_template_dir)
-
-
-def _mark_active(groups, page_url):
-    groups = [dict(g) for g in groups]
-    for g in groups:
-        original = list(g.get("links", []))
-        g["links"] = [{**lk, "active": lk["url"] == page_url} for lk in original]
-    return groups
 
 
 @router.get("/manage", response_class=HTMLResponse)
@@ -33,7 +26,7 @@ async def banks_manage(request: Request):
         {
             "app_name": APP_NAME,
             "page_title": "Bank Accounts - Kuku",
-            "nav_groups": _mark_active(NAV_GROUPS, "/banks/manage"),
+            "nav_groups": mark_active_nav(NAV_GROUPS, "/banks/manage"),
             "accounts": accounts,
         },
     )

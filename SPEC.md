@@ -11,6 +11,7 @@
 |         | Dashboard    | /                        |
 | BANKS   | Manage       | /banks/manage            |
 | BANKS   | Transaction  | /banks/transactions      |
+| BANKS   | Categories   | /banks/categories        |
 | REPORTS | Reports      | /reports                 |
 | ADMIN   | Settings     | /settings                |
 
@@ -119,3 +120,54 @@ Table name: `bank_accounts`. Created by `init_db()`.
 ### Database
 
 Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_accounts`.
+
+## Transaction Categories
+
+**URL**: `/banks/categories`
+**Purpose**: Manage transaction categories used to classify every bank transaction. Categories follow standard accounting classification (Income, Expense, Asset, Liability, Equity) per Indian Accounting Standards (ICAI) and international best practices (GAAP/IFRS). System categories are read-only; user categories can be added, edited, and deleted.
+
+### Fields
+
+| Field       | Required | Notes                                              |
+|-------------|----------|----------------------------------------------------|
+| name        | yes      | Category name, e.g. "Sales Revenue"                |
+| type        | yes      | One of: Income, Expense, Asset, Liability, Equity  |
+| description | no       | Brief description of the category                  |
+| is_system   | —        | Boolean, 1 = system default (read-only), 0 = user  |
+| created_at  | —        | Auto-set on create                                 |
+| updated_at  | —        | Auto-set on every update                           |
+
+### System Categories (39 defaults)
+
+**Income (8):** Sales Revenue, Service Revenue, Interest Income, Rent Income, Commission Income, Dividend Income, Capital Gains, Other Income.
+**Expense (17):** Cost of Goods Sold, Salaries & Wages, Payroll Taxes & Benefits, Rent & Lease, Utilities, Telephone & Internet, Advertising & Marketing, Insurance, Office Supplies, Professional Fees, Travel & Conveyance, Repairs & Maintenance, Bank Charges, Interest Paid, Depreciation, Tax Expense, Miscellaneous Expense.
+**Asset (5):** Cash & Bank, Accounts Receivable, Inventory, Fixed Assets, Investments.
+**Liability (6):** Accounts Payable, Short-term Loans, Long-term Loans, Credit Card Payable, Tax Payable, Advances Received.
+**Equity (3):** Owner Capital, Retained Earnings, Owner Drawings.
+
+### UI Layout
+
+- Page title: `Transaction Categories`
+- Primary action: `+ Add Category` button → HTMX loads form card in-place (`#category-form-card`).
+- List: Bootstrap compact table (`table-sm table-hover align-middle`).
+- Type column: coloured badge (`bg-success-subtle` for Income, `bg-danger-subtle` for Expense, `bg-primary-subtle` for Asset, `bg-warning-subtle` for Liability, `bg-info-subtle` for Equity).
+- System categories show a lock badge; no edit/delete actions.
+- User categories show Edit (HTMX form swap) and Delete (`hx-delete` with `hx-confirm`).
+- Sort order: type → is_system DESC → name.
+- Empty state: "No categories found."
+
+### Routes
+
+| Method | URL                                         | Purpose                          |
+|--------|---------------------------------------------|----------------------------------|
+| GET    | /banks/categories                           | Page                             |
+| GET    | /banks/categories/form                      | Add form partial                 |
+| GET    | /banks/categories/clear-form                | Clear form (HTMX)                |
+| GET    | /banks/categories/{id}/edit                 | Edit form partial                |
+| POST   | /banks/categories                           | Create (HTMX)                    |
+| POST   | /banks/categories/{id}/update               | Update user category (HTMX)      |
+| DELETE | /banks/categories/{id}                      | Delete user category (HTMX)      |
+
+### Database
+
+Table name: `transaction_categories`. Created by `init_db()`. System categories seeded on first `init_db()` run via `init_categories()`.

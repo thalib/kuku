@@ -1,0 +1,69 @@
+<div id="hx-category-list">
+    {% if categories %}
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Category</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Description</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in categories %}
+                    <tr>
+                        <td>
+                            <span class="fw-semibold">{{ c["type"] }}:{{ c["name"] }}</span>
+                        </td>
+                        <td>
+                            {% if c["type"] == "Income" %}
+                            <span class="badge bg-success-subtle text-success">{{ c["type"] }}</span>
+                            {% elif c["type"] == "Expense" %}
+                            <span class="badge bg-danger-subtle text-danger">{{ c["type"] }}</span>
+                            {% elif c["type"] == "Asset" %}
+                            <span class="badge bg-primary-subtle text-primary">{{ c["type"] }}</span>
+                            {% elif c["type"] == "Liability" %}
+                            <span class="badge bg-warning-subtle text-warning">{{ c["type"] }}</span>
+                            {% elif c["type"] == "Equity" %}
+                            <span class="badge bg-info-subtle text-info">{{ c["type"] }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">{{ c["description"] or "—" }}</td>
+                        <td class="text-end">
+                            {% if c["is_system"] %}
+                            <span class="badge bg-light text-muted border"><i class="bi bi-lock-fill me-1"></i>System</span>
+                            {% else %}
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-secondary"
+                                        hx-get="/banks/categories/{{ c['id'] }}/edit"
+                                        hx-target="#category-form-card"
+                                        hx-swap="outerHTML">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-danger"
+                                        hx-delete="/banks/categories/{{ c['id'] }}"
+                                        hx-confirm="Delete this category?"
+                                        hx-target="#hx-category-list"
+                                        hx-swap="outerHTML">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-tags fs-1 d-block mb-2"></i>
+            <p class="mb-0">No categories found.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>

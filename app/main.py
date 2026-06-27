@@ -5,7 +5,8 @@ from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from app.config import APP_NAME, NAV_GROUPS
 from app.database import init_db, close_db
-from app.routers import bank_accounts, bank_transactions
+from app.routers import bank_accounts, bank_transactions, categories
+from app.utils.nav import mark_active_nav
 import os
 
 
@@ -24,14 +25,7 @@ templates = Jinja2Templates(directory=_template_dir)
 
 app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
 app.include_router(bank_transactions.router, prefix="/banks", tags=["Transactions"])
-
-
-def _mark_active(groups, page_url):
-    groups = [dict(g) for g in groups]
-    for g in groups:
-        original_links = list(g.get("links", []))
-        g["links"] = [{**lk, "active": lk["url"] == page_url} for lk in original_links]
-    return groups
+app.include_router(categories.router, prefix="/banks", tags=["Categories"])
 
 
 def _render_page(request: Request, page_url: str, page_name: str):
@@ -42,7 +36,7 @@ def _render_page(request: Request, page_url: str, page_name: str):
             "app_name": APP_NAME,
             "page_title": f"{page_name} - Kuku",
             "page_name": page_name,
-            "nav_groups": _mark_active(NAV_GROUPS, page_url),
+            "nav_groups": mark_active_nav(NAV_GROUPS, page_url),
         },
     )
 
@@ -55,7 +49,7 @@ async def dashboard(request: Request):
         {
             "app_name": APP_NAME,
             "page_title": "Dashboard - Kuku",
-            "nav_groups": _mark_active(NAV_GROUPS, "/"),
+            "nav_groups": mark_active_nav(NAV_GROUPS, "/"),
         },
     )
 
