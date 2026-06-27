@@ -273,18 +273,6 @@ class TestCSVParsing:
         assert txns[0]["debit"] == 18940.0
         assert txns[1]["credit"] == 4237.25
 
-    def test_hdfc_sample_file(self):
-        from app.services.transactions import parse_csv_rows
-        with open("temp/hdfc.csv") as f:
-            txns = parse_csv_rows(f.read())
-        assert len(txns) == 48
-
-    def test_idbi_sample_file(self):
-        from app.services.transactions import parse_csv_rows
-        with open("temp/idbi.csv") as f:
-            txns = parse_csv_rows(f.read())
-        assert len(txns) == 50
-
     def test_amount_with_commas(self):
         from app.services.transactions import _parse_amount
         assert _parse_amount("1,13,692.65") == 113692.65

@@ -133,7 +133,7 @@
 
     KukuSearchSelect.prototype._build = function() {
         this.groups = [];
-        var groupOrder = ['Income','Expense','Asset','Liability','Equity'];
+        var groupOrder = ['Income','Expense','Asset','Liability','Equity','Transfer'];
         var self = this;
         groupOrder.forEach(function(t) {
             var items = self.cats.filter(function(c){ return c.type === t; });

@@ -48,13 +48,36 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS transaction_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('Income', 'Expense', 'Asset', 'Liability', 'Equity')),
+            type TEXT NOT NULL CHECK(type IN ('Income', 'Expense', 'Transfer', 'Asset', 'Liability', 'Equity')),
             description TEXT,
             is_system INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    # Migration: Update old databases that don't have 'Transfer' in the CHECK constraint
+    try:
+        # Test if 'Transfer' type is already allowed
+        await db.execute(
+            "INSERT INTO transaction_categories (name, type, is_system) VALUES ('_test_transfer', 'Transfer', 1)"
+        )
+        await db.execute("DELETE FROM transaction_categories WHERE name = '_test_transfer'")
+    except aiosqlite.IntegrityError:
+        # Old schema detected - recreate table with new constraint
+        await db.executescript("""
+            CREATE TABLE IF NOT EXISTS transaction_categories_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL CHECK(type IN ('Income', 'Expense', 'Transfer', 'Asset', 'Liability', 'Equity')),
+                description TEXT,
+                is_system INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            INSERT INTO transaction_categories_new SELECT * FROM transaction_categories;
+            DROP TABLE transaction_categories;
+            ALTER TABLE transaction_categories_new RENAME TO transaction_categories;
+        """)
     try:
         await db.execute("ALTER TABLE bank_transactions ADD COLUMN category_id INTEGER DEFAULT NULL")
     except aiosqlite.OperationalError:

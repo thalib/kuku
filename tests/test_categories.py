@@ -44,6 +44,25 @@ async def _seed_system_category():
     return system_cats[0] if system_cats else None
 
 
+@pytest.fixture()
+async def _seed_account():
+    from app.services.bank_accounts import create_account
+    from app.database import get_db
+    from app.models.bank_accounts import BankAccountCreate
+    db = await get_db()
+    return await create_account(
+        db,
+        BankAccountCreate(
+            bank_name="HDFC Bank",
+            account_name="Kuku Pvt Ltd",
+            account_number="1234567890",
+            ifsc_code="HDFC0001234",
+            branch_name="Anna Nagar",
+            notes="Primary operations account",
+        ),
+    )
+
+
 class TestCategoriesSeeding:
     def test_system_categories_seeded_on_init(self, client):
         resp = client.get("/banks/categories")
@@ -178,3 +197,48 @@ class TestCategoriesList:
     def test_clear_form_endpoint(self, client):
         resp = client.get("/banks/categories/clear-form")
         assert resp.status_code == 200
+
+
+class TestTransferCategories:
+    async def test_transfer_category_created_on_account_create(self, client, _seed_account):
+        from app.services.categories import list_transfer_categories
+        from app.database import get_db
+        import asyncio
+        db = await get_db()
+        transfers = await list_transfer_categories(db)
+        labels = [t["name"] for t in transfers]
+        assert "to HDFC Bank - Kuku Pvt Ltd" in labels
+        assert "from HDFC Bank - Kuku Pvt Ltd" in labels
+
+    async def test_transfer_categories_deleted_on_account_delete(self, client):
+        from app.services.bank_accounts import create_account
+        from app.services.categories import list_transfer_categories
+        from app.database import get_db
+        from app.models.bank_accounts import BankAccountCreate
+
+        db = await get_db()
+        account = await create_account(
+            db,
+            BankAccountCreate(
+                bank_name="TestBank",
+                account_name="TestAccount",
+                account_number="1111222233",
+                ifsc_code="TEST0000001",
+            ),
+        )
+        transfers = await list_transfer_categories(db)
+        labels_before = [t["name"] for t in transfers]
+        assert "to TestBank - TestAccount" in labels_before
+
+        from app.services.bank_accounts import delete_account
+        await delete_account(db, account["id"])
+
+        transfers = await list_transfer_categories(db)
+        labels_after = [t["name"] for t in transfers]
+        assert "to TestBank - TestAccount" not in labels_after
+
+    def test_transfer_categories_shown_on_categories_page(self, client, _seed_account):
+        body = client.get("/banks/categories").text
+        assert "to HDFC Bank - Kuku Pvt Ltd" in body
+        assert "from HDFC Bank - Kuku Pvt Ltd" in body
+        assert "bi-lock-fill" in body

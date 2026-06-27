@@ -1,13 +1,16 @@
 <select class="form-select form-select-sm tx-cat-select" id="tx-cat-select-{{ txn['id'] }}" name="category_id">
     <option value="" disabled {% if not txn.get("category_id") %}selected{% endif %}>Select…</option>
-    {% for type_name in ("Income", "Expense", "Asset", "Liability", "Equity") %}
+    {% for type_name in ("Income", "Expense", "Asset", "Liability", "Equity", "Transfer") %}
         {% set type_cats = [] %}
-        {% for c in categories %}{% if c["type"] == type_name %}{% set _ = type_cats.append(c) %}{% endif %}{% endfor %}
+        {% for c in categories %}{% if c["type"] == type_name %}{% set _ = type_cats.append(c) %}{% endfor %}{% endfor %}
         {% if type_cats %}
         <optgroup label="{{ type_name }}">
         {% for c in type_cats %}
             <option value="{{ c['id'] }}" {% if txn.get("category_id") == c["id"] %}selected{% endif %}>{{ c["type"]|upper }}:{{ c["name"] }}</option>
         {% endfor %}
+        </optgroup>
+        {% endif %}
+    {% endfor %}
         </optgroup>
         {% endif %}
     {% endfor %}

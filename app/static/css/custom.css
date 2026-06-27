@@ -5,6 +5,7 @@
 .badge-kuku-asset     { background-color: #0d6efd; color: #fff; }
 .badge-kuku-liability { background-color: #ffc107; color: #212529; }
 .badge-kuku-equity    { background-color: #0dcaf0; color: #212529; }
+.badge-kuku-transfer  { background-color: #6c757d; color: #fff; }
 
 /* Unified search-select widget for transaction categories */
 .tx-cat-cell { position: relative; }

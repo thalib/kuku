@@ -3,6 +3,11 @@ from datetime import datetime, timezone
 from app.models.categories import CategoryCreate, CategoryUpdate
 
 
+def _transfer_label(bank_name: str, account_name: str) -> str:
+    """Generate a consistent transfer label from bank and account name"""
+    return f"{bank_name} - {account_name}"
+
+
 SYSTEM_CATEGORIES = [
     ("Sales Revenue", "Income", "Revenue from sale of goods and products"),
     ("Service Revenue", "Income", "Revenue from services rendered"),
@@ -134,3 +139,106 @@ async def update_category(
     if cursor.rowcount == 0:
         return None
     return await get_category(db, category_id)
+
+
+async def create_transfer_categories(
+    db: aiosqlite.Connection,
+    bank_name: str,
+    account_name: str,
+) -> tuple[int, int]:
+    """Create 'to' and 'from' transfer categories for a bank account.
+
+    Returns (to_category_id, from_category_id).
+    """
+    label = _transfer_label(bank_name, account_name)
+    now = _now()
+
+    to_id = await _insert_transfer_category(db, f"to {label}", now)
+    from_id = await _insert_transfer_category(db, f"from {label}", now)
+
+    return to_id, from_id
+
+
+async def _insert_transfer_category(
+    db: aiosqlite.Connection,
+    name: str,
+    now: str,
+) -> int:
+    cursor = await db.execute(
+        """INSERT INTO transaction_categories
+           (name, type, description, is_system, created_at, updated_at)
+           VALUES (?, 'Transfer', ?, 1, ?, ?)""",
+        (name, f"Internal transfer {name}", now, now),
+    )
+    return cursor.lastrowid
+
+
+async def delete_transfer_categories(
+    db: aiosqlite.Connection,
+    bank_name: str,
+    account_name: str,
+) -> int:
+    """Delete transfer categories for a specific bank account.
+
+    Returns the count of deleted categories.
+    """
+    label = _transfer_label(bank_name, account_name)
+    cursor = await db.execute(
+        """DELETE FROM transaction_categories
+           WHERE is_system = 1 AND type = 'Transfer'
+             AND (name = 'to ' || ? OR name = 'from ' || ?)""",
+        (label, label),
+    )
+    await db.commit()
+    return cursor.rowcount
+
+
+async def update_transfer_categories(
+    db: aiosqlite.Connection,
+    old_bank_name: str,
+    old_account_name: str,
+    new_bank_name: str,
+    new_account_name: str,
+) -> int:
+    """Rename transfer categories when an account is updated.
+
+    Returns the count of updated categories.
+    """
+    old_label = _transfer_label(old_bank_name, old_account_name)
+    new_label = _transfer_label(new_bank_name, new_account_name)
+
+    if old_label == new_label:
+        return 0
+
+    now = _now()
+    cursor = await db.execute(
+        f"""UPDATE transaction_categories
+           SET name = REPLACE(name, 'to {old_label}', 'to {new_label}'),
+               updated_at = ?
+           WHERE is_system = 1 AND type = 'Transfer'
+             AND name = 'to {old_label}'""",
+        (now,),
+    )
+    cursor2 = await db.execute(
+        f"""UPDATE transaction_categories
+           SET name = REPLACE(name, 'from {old_label}', 'from {new_label}'),
+               updated_at = ?
+           WHERE is_system = 1 AND type = 'Transfer'
+             AND name = 'from {old_label}'""",
+        (now,),
+    )
+    await db.commit()
+    return cursor.rowcount + cursor2.rowcount
+
+
+async def list_transfer_categories(
+    db: aiosqlite.Connection,
+) -> list[dict]:
+    """Get all transfer categories, ordered by name."""
+    cursor = await db.execute(
+        """SELECT id, name, type
+           FROM transaction_categories
+           WHERE is_system = 1 AND type = 'Transfer'
+           ORDER BY name"""
+    )
+    return [_row_to_dict(r) for r in await cursor.fetchall()]

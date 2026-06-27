@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-CategoryType = Literal["Income", "Expense", "Asset", "Liability", "Equity"]
+CategoryType = Literal["Income", "Expense", "Transfer", "Asset", "Liability", "Equity"]
 
-CATEGORY_TYPES: tuple[CategoryType, ...] = ("Income", "Expense", "Asset", "Liability", "Equity")
+CATEGORY_TYPES: tuple[CategoryType, ...] = ("Income", "Expense", "Transfer", "Asset", "Liability", "Equity")
 
 
 class CategoryCreate(BaseModel):

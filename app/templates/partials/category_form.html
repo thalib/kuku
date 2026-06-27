@@ -34,14 +34,14 @@
                     <label class="form-label small fw-semibold">Type</label>
                     <select name="type" class="form-select form-select-sm" required>
                         {% for t in category_types %}
-                        <option value="{{ t }}"
+<option value="{{ t }}"
                             {% if category and category['type'] == t %} selected
                             {% elif form_type is defined and form_type == t %} selected
                             {% endif %}>
                             {{ t }}
                         </option>
                         {% endfor %}
-                    </select>
+                     </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label small fw-semibold">Description <span class="text-muted fw-normal">(optional)</span></label>

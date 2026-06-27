@@ -180,6 +180,7 @@ Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_account
 **Asset (5):** Cash & Bank, Accounts Receivable, Inventory, Fixed Assets, Investments.
 **Liability (6):** Accounts Payable, Short-term Loans, Long-term Loans, Credit Card Payable, Tax Payable, Advances Received.
 **Equity (3):** Owner Capital, Retained Earnings, Owner Drawings.
+**Transfer (auto-managed):** Two transfer categories per bank account: `to {Bank Name} - {Account Name}` and `from {Bank Name} - {Account Name}`. These are system-managed and cannot be edited or deleted manually.
 
 ### UI Layout
 
