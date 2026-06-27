@@ -21,15 +21,24 @@
     </div>
 </div>
 
+<div id="tx-global-savebar" style="display:none" class="alert alert-warning py-2 mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle"></i>
+    <span class="small" id="tx-savebar-msg"><strong>Unsaved changes.</strong> Review your categories and save or cancel.</span>
+    <button class="btn btn-primary btn-sm ms-auto" id="btnGlobalSave" style="display:none">
+        <i class="bi bi-check-lg me-1"></i> Save
+    </button>
+    <button class="btn btn-secondary btn-sm" id="btnGlobalCancel">Cancel</button>
+</div>
+
 {% if transactions %}
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm" id="tx-table-card" data-cats='{{ categories | tojson }}'>
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
                     <th class="ps-3" style="width:90px">Date</th>
                     <th>Narration</th>
-                    <th style="width:140px">Reference</th>
+                    <th style="width:260px">Category</th>
                     <th class="text-end" style="width:100px">Debit</th>
                     <th class="text-end" style="width:100px">Credit</th>
                     <th class="text-end" style="width:110px">Balance</th>
@@ -48,7 +57,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body text-center text-muted py-4">
         <i class="bi bi-inbox fs-3 d-block mb-1"></i>
-        <p class="mb-0">No transactions for {{ month_label }} {{ year }}. Import some to get started.</p>
+        <p class="mb-0">No transactions for {{ month_label }}. Import some to get started.</p>
     </div>
 </div>
 {% endif %}

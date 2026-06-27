@@ -55,8 +55,14 @@ async def init_db():
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    try:
+        await db.execute("ALTER TABLE bank_transactions ADD COLUMN category_id INTEGER DEFAULT NULL")
+    except aiosqlite.OperationalError:
+        pass
     from app.services.categories import init_categories
     await init_categories(db)
+    from app.services.transactions import auto_classify_existing_transactions
+    await auto_classify_existing_transactions(db)
     await db.commit()
 
 

@@ -12,6 +12,7 @@ class TransactionCreate(BaseModel):
     debit: float = Field(default=0, ge=0)
     credit: float = Field(default=0, ge=0)
     balance: float = 0
+    category_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
@@ -22,3 +23,8 @@ class TransactionUpdate(BaseModel):
     debit: Optional[float] = Field(default=None, ge=0)
     credit: Optional[float] = Field(default=None, ge=0)
     balance: Optional[float] = None
+    category_id: Optional[int] = None
+
+
+class TransactionCategoryUpdate(BaseModel):
+    category_id: int

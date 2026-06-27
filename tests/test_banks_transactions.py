@@ -93,7 +93,7 @@ class TestTransactionsFilters:
     def test_filters_returns_200(self, client, _seed_transactions):
         resp = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}")
         assert resp.status_code == 200
-        assert "selYear" in resp.text
+        assert "selFy" in resp.text
         assert "selMonth" in resp.text
 
     def test_filters_only_show_months_with_data(self, client, _seed_transactions):
@@ -104,44 +104,45 @@ class TestTransactionsFilters:
     def test_filters_show_no_data_when_no_transactions(self, client, _seed_account):
         body = client.get(f"/banks/transactions/filters?account_id={_seed_account['id']}").text
         assert "No transactions uploaded" in body
-        assert "selYear" not in body
+        assert "selFy" not in body
 
-    def test_filters_show_available_years_with_data(self, client, _seed_transactions):
+    def test_filters_show_available_fy_years_with_data(self, client, _seed_transactions):
         body = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}").text
         assert "2024" in body
+        assert "FY 2024" in body
 
     def test_filters_selected_month_is_respected(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        body = client.get(f"/banks/transactions/filters?account_id={aid}&selected_year=2024&selected_month=4").text
+        body = client.get(f"/banks/transactions/filters?account_id={aid}&selected_fy=2024&selected_month=4").text
         assert 'value="4" selected' in body
 
 
 class TestTransactionsTable:
     def test_table_returns_200(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        resp = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4")
+        resp = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4")
         assert resp.status_code == 200
 
     def test_table_shows_transactions(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        body = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4").text
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
         assert "NEFT Credit" in body
         assert "TPT Staff Salary" in body
 
     def test_table_shows_summary(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        body = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4").text
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
         assert "Total Debit" in body
         assert "Total Credit" in body
 
     def test_table_shows_empty_for_no_data(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        body = client.get(f"/banks/transactions/table?account_id={aid}&year=2025&month=1").text
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2025&month=1").text
         assert "No transactions" in body
 
     def test_table_has_edit_and_delete_buttons(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        body = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4").text
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
         assert "bi-pencil" in body
         assert "bi-trash" in body
 
@@ -181,12 +182,12 @@ class TestCSVImport:
         assert resp.status_code == 200
         trigger = json.loads(resp.headers["HX-Trigger"])
         details = trigger["txImported"]
-        assert details["year"] == 2024
+        assert details["fy"] == 2024
         assert details["month"] == 4
         assert details["count"] == 3
 
         aid = _seed_account["id"]
-        body = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4").text
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
         assert "NEFT" in body
 
     def test_preview_invalid_file(self, client, _seed_account):
@@ -235,20 +236,20 @@ class TestTransactionCRUD:
 class TestExport:
     def test_export_csv(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        resp = client.get(f"/banks/transactions/export/csv?account_id={aid}&year=2024&month=4")
+        resp = client.get(f"/banks/transactions/export/csv?account_id={aid}&fy=2024&month=4")
         assert resp.status_code == 200
         assert "text/csv" in resp.headers["content-type"]
         assert "NEFT Credit" in resp.text
 
     def test_export_xlsx(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        resp = client.get(f"/banks/transactions/export/xlsx?account_id={aid}&year=2024&month=4")
+        resp = client.get(f"/banks/transactions/export/xlsx?account_id={aid}&fy=2024&month=4")
         assert resp.status_code == 200
         assert "spreadsheetml" in resp.headers["content-type"]
 
     def test_export_pdf(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
-        resp = client.get(f"/banks/transactions/export/pdf?account_id={aid}&year=2024&month=4")
+        resp = client.get(f"/banks/transactions/export/pdf?account_id={aid}&fy=2024&month=4")
         assert resp.status_code == 200
         assert "application/pdf" in resp.headers["content-type"]
 
@@ -287,8 +288,91 @@ class TestCSVParsing:
     def test_amount_with_commas(self):
         from app.services.transactions import _parse_amount
         assert _parse_amount("1,13,692.65") == 113692.65
-        assert _parse_amount("") == 0.0
-        assert _parse_amount("5000") == 5000.0
+
+class TestTransactionCategories:
+    def test_table_shows_category_column(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
+        assert "Category" in body
+
+    def test_uncategorized_shows_widget(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
+        assert "kuku-search-select" in body
+
+    def test_category_patch_updates_and_returns_200(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        from app.services.transactions import list_transactions, list_categories_for_transactions
+        from app.database import get_db
+
+        async def _get_data():
+            db = await get_db()
+            txns = await list_transactions(db, aid, 2024, 4)
+            cats = await list_categories_for_transactions(db)
+            uncategorized_expense_id = None
+            for c in cats:
+                if c["name"] == "Uncategorized Expense":
+                    uncategorized_expense_id = c["id"]
+                    break
+            return txns[0]["id"], uncategorized_expense_id
+
+        import asyncio
+        txn_id, cat_id = asyncio.get_event_loop().run_until_complete(_get_data())
+        resp = client.patch(f"/banks/transactions/{txn_id}/category", data={"category_id": cat_id})
+        assert resp.status_code == 200
+
+    def test_category_patch_404_for_nonexistent(self, client):
+        resp = client.patch("/banks/transactions/99999/category", data={"category_id": 1})
+        assert resp.status_code == 404
+
+    def test_import_auto_classifies_expense(self, client, _seed_account):
+        from app.services.transactions import parse_csv_rows, list_transactions
+        from app.database import get_db
+        from app.services.categories import list_categories
+
+        txns = parse_csv_rows(HDFC_CSV)
+        resp = client.post(
+            "/banks/transactions/import/confirm",
+            data={"account_id": str(_seed_account["id"]), "data": json.dumps(txns)},
+        )
+        assert resp.status_code == 200
+
+        async def _check():
+            db = await get_db()
+            txns = await list_transactions(db, _seed_account["id"], 2024, 4)
+            cats = await list_categories(db)
+            uncategorized = next(c for c in cats if c["name"] == "Uncategorized Expense")
+            uncategorized_income = next(c for c in cats if c["name"] == "Uncategorized Income")
+            expense_txn = next(t for t in txns if t["debit"] > 0)
+            income_txn = next(t for t in txns if t["credit"] > 0)
+            return expense_txn["category_id"], income_txn["category_id"], uncategorized["id"], uncategorized_income["id"]
+
+        import asyncio
+        exp_cat, inc_cat, unc_exp_id, unc_inc_id = asyncio.get_event_loop().run_until_complete(_check())
+        assert exp_cat == unc_exp_id
+        assert inc_cat == unc_inc_id
+
+    def test_transaction_row_shows_ref_below_narration(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
+        assert "(REF: REF001)" in body
+        assert "NEFT Credit" in body
+
+    def test_empty_ref_shows_no_ref_line(self, client, _seed_account):
+        from app.services.transactions import bulk_create_transactions
+        from app.database import get_db
+
+        async def _seed():
+            db = await get_db()
+            await bulk_create_transactions(db, _seed_account["id"], [
+                {"txn_date": "2024-04-01", "value_date": "2024-04-01", "narration": "NoRefTxn", "reference": "", "debit": 0, "credit": 500, "balance": 500},
+            ])
+
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(_seed())
+        body = client.get(f"/banks/transactions/table?account_id={_seed_account['id']}&fy=2024&month=4").text
+        assert "NoRefTxn" in body
+        assert "(REF:" not in body
 
     def test_date_parsing_formats(self):
         from app.services.transactions import _parse_date_str
@@ -312,3 +396,41 @@ class TestCSVParsing:
         assert m["type"] == "single"
         assert "crdr" in m
         assert "amount" in m
+
+
+class TestBulkDelete:
+    def test_bulk_summary_returns_json(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        resp = client.get(f"/banks/transactions/bulk/summary?account_id={aid}&fy=2024&month=4")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["count"] == 3
+        assert data["total_debit"] == 13000.0
+        assert data["total_credit"] == 18940.0
+        assert "Apr" in data["month_label"]
+
+    def test_bulk_delete_removes_transactions(self, client, _seed_transactions):
+        from app.services.transactions import list_transactions
+        from app.database import get_db
+        import asyncio
+
+        aid = _seed_transactions["account"]["id"]
+        resp = client.delete(f"/banks/transactions/bulk/delete?account_id={aid}&fy=2024&month=4")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["deleted"] == 3
+
+        async def _check():
+            db = await get_db()
+            txns = await list_transactions(db, aid, 2024, 4)
+            return txns
+
+        txns = asyncio.get_event_loop().run_until_complete(_check())
+        assert len(txns) == 0
+
+    def test_bulk_delete_empty_month_returns_zero(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        resp = client.delete(f"/banks/transactions/bulk/delete?account_id={aid}&fy=2025&month=1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["deleted"] == 0

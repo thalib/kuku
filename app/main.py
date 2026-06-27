@@ -23,6 +23,8 @@ _static_dir = os.path.join(os.path.dirname(__file__), "static")
 _template_dir = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=_template_dir)
 
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
 app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
 app.include_router(bank_transactions.router, prefix="/banks", tags=["Transactions"])
 app.include_router(categories.router, prefix="/banks", tags=["Categories"])

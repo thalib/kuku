@@ -1,0 +1,7 @@
+{% if txn.get("category_id") %}
+<span class="badge badge-kuku-{{ txn['cat_type']|lower }} rounded-pill">
+    {{ txn["cat_type"]|upper }}: {{ txn["cat_name"] }}
+</span>
+{% else %}
+<span class="badge text-bg-warning rounded-pill">UNASSIGNED</span>
+{% endif %}

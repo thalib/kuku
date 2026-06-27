@@ -5,6 +5,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">Transactions</h1>
         <div>
+            <button class="btn btn-outline-danger btn-sm me-2" id="btnBulkDelete" disabled style="display:none">
+                <i class="bi bi-trash me-1"></i> Delete Month
+            </button>
             <button class="btn btn-outline-primary btn-sm me-2" id="btnImport" disabled>
                 <i class="bi bi-upload me-1"></i> Import
             </button>
@@ -57,6 +60,41 @@
         </div>
     </div>
 
+    <div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2 bg-danger text-white">
+                    <h6 class="modal-title mb-0" id="bulkDeleteModalLabel"><i class="bi bi-exclamation-triangle me-2"></i>Permanently Delete Transactions</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger py-2 small mb-3">
+                        <strong>Warning:</strong> This will permanently delete <span id="bd-count" class="fw-bold">0</span> transactions from <span id="bd-period" class="fw-bold"></span>.
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="small text-muted">Total Debit</div>
+                            <div class="fw-semibold text-danger" id="bd-debit">0.00</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Total Credit</div>
+                            <div class="fw-semibold text-success" id="bd-credit">0.00</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="small mb-2">To confirm, type <code class="small">DELETE</code> below:</p>
+                    <input type="text" id="bd-confirm-input" class="form-control form-control-sm" placeholder="Type DELETE to confirm" autocomplete="off">
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="bd-confirm-btn" disabled>
+                        <i class="bi bi-trash me-1"></i>Delete Permanently
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% else %}
     <div class="card border-0 shadow-sm">
         <div class="card-body text-center text-muted py-5">
@@ -71,41 +109,269 @@
 <script>
 (function(){
     var importModal = null;
+    var bulkDeleteModal = null;
+    var dirtyCells = {};
+    var allCats = [];
+    var searchSelectWidgets = {};
+
+    /* ── Searchable-select widget ───────────────────────────────── */
+
+    function KukuSearchSelect(rootEl, cats) {
+        this.root = rootEl;
+        this.txnId = rootEl.getAttribute('data-txn-id');
+        this.original = rootEl.getAttribute('data-original');
+        var selected = rootEl.getAttribute('data-selected');
+        this.selectedId = selected || '';
+        this.input = rootEl.querySelector('.ss-display');
+        this.dropdown = rootEl.querySelector('.ss-dropdown');
+        this.cats = cats;
+        this.highlightIdx = -1;
+        this._build();
+        this._setInitialText(selected);
+        this._bind();
+    }
+
+    KukuSearchSelect.prototype._build = function() {
+        this.groups = [];
+        var groupOrder = ['Income','Expense','Asset','Liability','Equity'];
+        var self = this;
+        groupOrder.forEach(function(t) {
+            var items = self.cats.filter(function(c){ return c.type === t; });
+            if (items.length > 0) self.groups.push({label: t, items: items});
+        });
+        this.flatItems = [];
+        this.groups.forEach(function(g) {
+            g.items.forEach(function(c) {
+                self.flatItems.push({id: c.id, type: c.type, name: c.name, label: c.type.toUpperCase() + ':' + c.name, searchText: (c.type + ' ' + c.name).toLowerCase()});
+            });
+        });
+    };
+
+    KukuSearchSelect.prototype._setInitialText = function(selectedId) {
+        if (!selectedId) { this.input.value = ''; return; }
+        var found = this.cats.find(function(c){ return String(c.id) === String(selectedId); });
+        if (found) this.input.value = found.type.toUpperCase() + ':' + found.name;
+    };
+
+    KukuSearchSelect.prototype._bind = function() {
+        var self = this;
+        this.input.addEventListener('focus', function() { self._open(); });
+        this.input.addEventListener('click', function(e) { e.stopPropagation(); });
+        this.input.addEventListener('input', function() { self._filter(); });
+        this.input.addEventListener('keydown', function(e) { self._keyNav(e); });
+        this.root.addEventListener('click', function(e) {
+            var opt = e.target.closest('.ss-option');
+            if (opt && !opt.classList.contains('no-results')) {
+                self._select(opt.getAttribute('data-id'));
+            }
+        });
+    };
+
+    KukuSearchSelect.prototype._open = function() {
+        this.root.classList.add('open');
+        this._render(this.input.value);
+        this.input.select && this.input.select();
+    };
+
+    KukuSearchSelect.prototype._close = function() {
+        this.root.classList.remove('open');
+        this.highlightIdx = -1;
+    };
+
+    KukuSearchSelect.prototype._render = function(query) {
+        var q = query.toLowerCase().trim();
+        var html = '';
+        var self = this;
+        var totalMatches = 0;
+        var itemIdx = 0;
+        this.groups.forEach(function(g) {
+            var matches = g.items.filter(function(c){
+                if (!q) return true;
+                var haystack = (c.type + ' ' + c.name + ' ' + (c.description || '')).toLowerCase();
+                return q.split(/\s+/).every(function(word){ return haystack.indexOf(word) >= 0; });
+            });
+            if (matches.length === 0) return;
+            totalMatches += matches.length;
+            html += '<div class="ss-group-label">' + self._esc(g.label) + '</div>';
+            matches.forEach(function(c) {
+                var isActive = String(c.id) === String(self.selectedId);
+                var highlight = itemIdx === self.highlightIdx ? ' highlight' : '';
+                html += '<div class="ss-option' + highlight + '" data-id="' + c.id + '" role="option">' +
+                        self._esc(c.type.toUpperCase() + ':' + c.name) +
+                        (isActive ? ' <i class="bi bi-check" style="float:right"></i>' : '') +
+                        '</div>';
+                itemIdx++;
+            });
+        });
+        if (totalMatches === 0) {
+            html = '<div class="ss-option no-results">No matches found</div>';
+        }
+        this.dropdown.innerHTML = html;
+        this.visibleItems = this.dropdown.querySelectorAll('.ss-option:not(.no-results)');
+    };
+
+    KukuSearchSelect.prototype._filter = function() {
+        this.highlightIdx = this.input.value.trim() ? 0 : -1;
+        this._render(this.input.value);
+    };
+
+    KukuSearchSelect.prototype._select = function(id) {
+        var found = this.cats.find(function(c){ return String(c.id) === String(id); });
+        if (found) {
+            this.selectedId = String(id);
+            this.input.value = found.type.toUpperCase() + ':' + found.name;
+            this._close();
+            this._emitChange();
+        }
+    };
+
+    KukuSearchSelect.prototype._clear = function() {
+        this.selectedId = '';
+        this.input.value = '';
+        this._close();
+        this._emitChange();
+    };
+
+    KukuSearchSelect.prototype._emitChange = function() {
+        var isDirty = this.selectedId !== this.original;
+        if (typeof window.onCategoryChanged === 'function') {
+            window.onCategoryChanged(this.txnId, this.selectedId, this.original, isDirty);
+        }
+    };
+
+    KukuSearchSelect.prototype._keyNav = function(e) {
+        if (!this.visibleItems) return;
+        var count = this.visibleItems.length;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.highlightIdx = Math.min(this.highlightIdx + 1, count - 1);
+            this._render(this.input.value);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.highlightIdx = Math.max(this.highlightIdx - 1, 0);
+            this._render(this.input.value);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (this.highlightIdx >= 0 && this.visibleItems[this.highlightIdx]) {
+                var id = this.visibleItems[this.highlightIdx].getAttribute('data-id');
+                this._select(id);
+            }
+        } else if (e.key === 'Escape') {
+            this._close();
+        } else if (e.key === 'Backspace' && this.input.value === '') {
+            this._clear();
+        }
+    };
+
+    KukuSearchSelect.prototype._esc = function(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    };
+
+    KukuSearchSelect.prototype.getValue = function() { return this.selectedId; };
+
+    KukuSearchSelect.prototype.resetToOriginal = function() {
+        this.selectedId = this.original;
+        this._setInitialText(this.original);
+        this._close();
+    };
+
+    /* Close dropdowns on outside click */
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.kuku-search-select')) {
+            document.querySelectorAll('.kuku-search-select.open').forEach(function(el){ el.classList.remove('open'); });
+        }
+    });
+
+    /* ── Table / filter logic ──────────────────────────────────── */
+
+    function initWidgets() {
+        var card = document.getElementById('tx-table-card');
+        if (!card) return;
+        try { allCats = JSON.parse(card.getAttribute('data-cats') || '[]'); } catch(e) { allCats = []; }
+        searchSelectWidgets = {};
+        document.querySelectorAll('.kuku-search-select[data-txn-id]').forEach(function(el) {
+            var txnId = el.getAttribute('data-txn-id');
+            searchSelectWidgets[txnId] = new KukuSearchSelect(el, allCats);
+        });
+    }
+
+    window.onCategoryChanged = function(txnId, newVal, original, isDirty) {
+        var row = document.getElementById('tx-row-' + txnId);
+        if (isDirty) {
+            dirtyCells[txnId] = true;
+            if (row) row.classList.add('tr-row-dirty');
+        } else {
+            delete dirtyCells[txnId];
+            if (row) row.classList.remove('tr-row-dirty');
+        }
+        updateSaveBar();
+    };
 
     function getFilters(){
         var sel = document.getElementById('selAccount');
-        var yr = document.getElementById('selYear');
+        var fy = document.getElementById('selFy');
         var mo = document.getElementById('selMonth');
         return {
             account_id: sel ? sel.value : '',
-            year: yr ? yr.value : '',
+            fy: fy ? fy.value : '',
             month: mo ? mo.value : ''
         };
     }
 
     function loadTable(){
         var f = getFilters();
-        if (!f.account_id || !f.year || !f.month) return;
+        if (!f.account_id || !f.fy || !f.month) {
+            dirtyCells = {};
+            return;
+        }
         htmx.ajax('GET',
-            '/banks/transactions/table?account_id='+f.account_id+'&year='+f.year+'&month='+f.month,
+            '/banks/transactions/table?account_id='+f.account_id+'&fy='+f.fy+'&month='+f.month,
             '#hx-table-area');
         document.getElementById('btnExport').style.display = '';
+        var bdBtn = document.getElementById('btnBulkDelete');
+        bdBtn.style.display = '';
+        bdBtn.disabled = false;
         var base = '/banks/transactions/export/';
-        var q = '?account_id='+f.account_id+'&year='+f.year+'&month='+f.month;
+        var q = '?account_id='+f.account_id+'&fy='+f.fy+'&month='+f.month;
         document.getElementById('expCSV').href = base+'csv'+q;
         document.getElementById('expXLSX').href = base+'xlsx'+q;
         document.getElementById('expPDF').href = base+'pdf'+q;
+        dirtyCells = {};
+        updateSaveBar();
+    }
+
+    function updateSaveBar(){
+        var bar = document.getElementById('tx-global-savebar');
+        var saveBtn = document.getElementById('btnGlobalSave');
+        var msg = document.getElementById('tx-savebar-msg');
+        var keys = Object.keys(dirtyCells);
+        if (!bar || !saveBtn || !msg) return;
+        if (keys.length > 0) {
+            bar.style.display = 'flex';
+            bar.style.alignItems = 'center';
+            bar.style.gap = '0.5rem';
+            saveBtn.style.display = 'inline-block';
+            msg.innerHTML = '<strong>' + keys.length + ' unsaved categor' + (keys.length === 1 ? 'y' : 'ies') + '.</strong> Save or cancel.';
+        } else {
+            bar.style.display = 'none';
+            bar.style.removeProperty('align-items');
+            bar.style.removeProperty('gap');
+            saveBtn.style.display = 'none';
+        }
     }
 
     document.addEventListener('change', function(e){
         if (e.target.id === 'selAccount'){
-            var btn = document.getElementById('btnImport');
-            if (btn) btn.disabled = !e.target.value;
+            document.getElementById('btnImport').disabled = !e.target.value;
+            document.getElementById('btnBulkDelete').disabled = !e.target.value;
+            document.getElementById('btnBulkDelete').style.display = e.target.value ? '' : 'none';
         }
-        if (e.target.id === 'selYear'){
+        if (e.target.id === 'selFy'){
             var sel = document.getElementById('selAccount');
             htmx.ajax('GET',
-                '/banks/transactions/filters?account_id='+sel.value+'&selected_year='+e.target.value,
+                '/banks/transactions/filters?account_id='+sel.value+'&selected_fy='+e.target.value,
                 '#hx-filters');
         }
         if (e.target.id === 'selMonth') loadTable();
@@ -113,7 +379,65 @@
 
     document.addEventListener('htmx:afterSwap', function(e){
         if (e.detail.target.id === 'hx-filters') loadTable();
+        if (e.detail.target.id === 'hx-table-area') initWidgets();
+        if (e.detail.target.id === 'import-modal-body'){
+            var label = document.querySelector('#import-modal-body .modal-title-label');
+            document.getElementById('importModalLabel').textContent =
+                label ? label.textContent : 'Import Transactions';
+        }
     });
+
+    /* ── Global Save / Cancel ──────────────────────────────────── */
+
+    document.addEventListener('click', function(e){
+        var saveBtn = e.target.closest('#btnGlobalSave');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            var pending = Object.keys(dirtyCells).slice();
+            if (!pending.length) { updateSaveBar(); return; }
+            var completed = 0;
+            var failed = false;
+            pending.forEach(function(txnId){
+                var w = searchSelectWidgets[txnId];
+                var catId = w ? w.getValue() : '';
+                if (!catId) { completed++; return; }
+                fetch('/banks/transactions/' + txnId + '/category', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({'category_id': catId}),
+                }).then(function(resp){
+                    if (!resp.ok) { failed = true; return; }
+                    if (w) w.original = catId;
+                    delete dirtyCells[txnId];
+                    var row = document.getElementById('tx-row-' + txnId);
+                    if (row) row.classList.remove('tr-row-dirty');
+                }).catch(function(){ failed = true; }).finally(function(){
+                    completed++;
+                    if (completed === pending.length){
+                        saveBtn.disabled = false;
+                        if (failed){ alert('Some categories could not be saved.'); return; }
+                        loadTable();
+                    }
+                });
+            });
+            return;
+        }
+
+        var cancelBtn = e.target.closest('#btnGlobalCancel');
+        if (cancelBtn) {
+            Object.keys(dirtyCells).forEach(function(txnId){
+                var w = searchSelectWidgets[txnId];
+                if (w) w.resetToOriginal();
+                delete dirtyCells[txnId];
+                var row = document.getElementById('tx-row-' + txnId);
+                if (row) row.classList.remove('tr-row-dirty');
+            });
+            updateSaveBar();
+            return;
+        }
+    });
+
+    /* ── Import ────────────────────────────────────────────────── */
 
     document.getElementById('btnImport').addEventListener('click', function(){
         if (!importModal) importModal = new bootstrap.Modal(document.getElementById('importModal'));
@@ -125,36 +449,96 @@
         htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#import-modal-body');
     });
 
-    document.addEventListener('htmx:afterSwap', function(e){
-        if (e.detail.target.id === 'import-modal-body'){
-            var label = document.querySelector('#import-modal-body .modal-title-label');
-            document.getElementById('importModalLabel').textContent =
-                label ? label.textContent : 'Import Transactions';
-        }
-    });
-
     document.addEventListener('txImported', function(e){
         if (importModal) importModal.hide();
         var sel = document.getElementById('selAccount');
         if (!sel || !sel.value) return;
         var detail = (e.detail && e.detail.value) ? e.detail.value : {};
         var count = detail.count || '?';
-
         var alertDiv = document.getElementById('hx-import-alert');
         alertDiv.innerHTML =
             '<div class="alert alert-success py-2 small alert-dismissible fade show mb-3" role="alert">' +
             '<i class="bi bi-check-circle me-1"></i> ' + count + ' transactions imported successfully.' +
             '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
         setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
-
         htmx.ajax('GET',
             '/banks/transactions/filters?account_id='+sel.value+
-                (detail.year ? '&selected_year='+detail.year : '')+
+                (detail.fy ? '&selected_fy='+detail.fy : '')+
                 (detail.month ? '&selected_month='+detail.month : ''),
             '#hx-filters');
     });
 
     document.addEventListener('txDeleted', function(){ loadTable(); });
+
+    /* ── Bulk Delete ───────────────────────────────────────────── */
+
+    var bdPending = null;
+
+    document.getElementById('btnBulkDelete').addEventListener('click', function(){
+        if (!bulkDeleteModal) bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+        var f = getFilters();
+        if (!f.account_id || !f.fy || !f.month) return;
+        bulkDeleteModal.show();
+        document.getElementById('bd-confirm-input').value = '';
+        document.getElementById('bd-confirm-btn').disabled = true;
+
+        fetch('/banks/transactions/bulk/summary?account_id='+f.account_id+'&fy='+f.fy+'&month='+f.month)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                bdPending = {account_id: f.account_id, fy: f.fy, month: f.month, count: d.count, total_debit: d.total_debit, total_credit: d.total_credit, month_label: d.month_label};
+                document.getElementById('bd-count').textContent = d.count;
+                document.getElementById('bd-period').textContent = d.month_label;
+                document.getElementById('bd-debit').textContent = d.total_debit.toFixed(2);
+                document.getElementById('bd-credit').textContent = d.total_credit.toFixed(2);
+            });
+    });
+
+    document.getElementById('bd-confirm-input').addEventListener('input', function(e){
+        document.getElementById('bd-confirm-btn').disabled = (e.target.value.trim() !== 'DELETE');
+    });
+
+    document.getElementById('bd-confirm-btn').addEventListener('click', function(){
+        if (!bdPending) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';
+        var p = bdPending;
+        fetch('/banks/transactions/bulk/delete?account_id='+p.account_id+'&fy='+p.fy+'&month='+p.month, {
+            method: 'DELETE',
+        }).then(function(r){
+            if (!r.ok) throw new Error('Delete failed');
+            bulkDeleteModal.hide();
+            var alertDiv = document.getElementById('hx-import-alert');
+            alertDiv.innerHTML =
+                '<div class="alert alert-danger py-2 small alert-dismissible fade show mb-3" role="alert">' +
+                '<i class="bi bi-trash me-1"></i> ' + p.count + ' transactions deleted from ' + p.month_label + '.' +
+                '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+            setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
+            loadTable();
+        }).catch(function(err){
+            alert('Failed to delete: ' + err.message);
+        }).finally(function(){
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete Permanently';
+            bdPending = null;
+        });
+    });
+
+    document.getElementById('bulkDeleteModal').addEventListener('hidden.bs.modal', function(){
+        document.getElementById('bd-confirm-input').value = '';
+        document.getElementById('bd-confirm-btn').disabled = true;
+        bdPending = null;
+    });
+
+    /* ── beforeunload ──────────────────────────────────────────── */
+
+    window.addEventListener('beforeunload', function(e){
+        if (Object.keys(dirtyCells).length > 0){
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
 })();
 </script>
 {% endblock %}

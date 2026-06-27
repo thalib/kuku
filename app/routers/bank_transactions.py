@@ -4,7 +4,7 @@ from calendar import month_abbr
 from datetime import date
 
 from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
@@ -12,7 +12,7 @@ from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import bank_accounts as bank_svc
 from app.services import transactions as tx_svc
-from app.models.transactions import TransactionUpdate
+from app.models.transactions import TransactionUpdate, TransactionCategoryUpdate
 from app.utils.nav import mark_active_nav
 
 router = APIRouter()
@@ -46,35 +46,42 @@ async def transactions_page(request: Request):
 
 
 @router.get("/transactions/filters", response_class=HTMLResponse)
-async def transactions_filters(request: Request, account_id: int, selected_year: int | None = None, selected_month: int | None = None):
+async def transactions_filters(request: Request, account_id: int, selected_fy: int | None = None, selected_month: int | None = None):
     db = await get_db()
-    years = await tx_svc.get_available_years(db, account_id)
-    if not years:
+    fy_years = await tx_svc.get_available_fy_years(db, account_id)
+    if not fy_years:
         ctx = {"no_data": True, "account_id": account_id}
         return templates.TemplateResponse(request, "partials/tx_filters.html", ctx)
-    yr = selected_year if selected_year and selected_year in years else max(years)
-    avail = await tx_svc.get_available_months(db, account_id, yr)
-    month_map = dict(MONTHS)
-    months = [(m, month_map[m]) for m in avail]
-    sel_month = selected_month if selected_month and selected_month in avail else min(avail)
-    ctx = {"no_data": False, "account_id": account_id, "years": years,
-           "months": months, "selected_year": yr, "selected_month": sel_month}
+    now = date.today()
+    current_fy = now.year if now.month >= 4 else now.year - 1
+    fy = selected_fy if selected_fy and selected_fy in fy_years else current_fy if current_fy in fy_years else max(fy_years)
+    avail = await tx_svc.get_available_months(db, account_id, fy)
+    months = [(m, f"{MONTHS[m - 1][1]} {tx_svc.fy_to_calendar(fy, m)}") for m in avail]
+    sel_month = selected_month if selected_month and selected_month in avail else max(avail)
+    ctx = {
+        "no_data": False, "account_id": account_id,
+        "fy_years": fy_years, "months": months,
+        "selected_fy": fy, "selected_month": sel_month,
+    }
     return templates.TemplateResponse(request, "partials/tx_filters.html", ctx)
 
 
 @router.get("/transactions/table", response_class=HTMLResponse)
-async def transactions_table(request: Request, account_id: int, year: int, month: int):
+async def transactions_table(request: Request, account_id: int, fy: int, month: int):
     db = await get_db()
-    txns = await tx_svc.list_transactions(db, account_id, year, month)
-    summary = await tx_svc.get_summary(db, account_id, year, month)
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
+    categories = await tx_svc.list_categories_for_transactions(db)
+    summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
-    month_label = f"{month:02d} - {month_abbr[month]}"
+    month_label = f"{month_abbr[month]} {calendar_year}"
     ctx = {
         "transactions": txns,
+        "categories": categories,
         "summary": summary,
         "account": account,
         "account_id": account_id,
-        "year": year,
+        "fy": fy,
         "month": month,
         "month_label": month_label,
     }
@@ -128,19 +135,21 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
         txns = json.loads(data)
     except json.JSONDecodeError:
         raise HTTPException(400, "Invalid transaction data")
-    count = await tx_svc.bulk_create_transactions(db, account_id, txns)
+    cat_map = await tx_svc.get_uncategorized_category_ids(db)
+    count = await tx_svc.bulk_create_transactions(db, account_id, txns, cat_map)
 
     dates = [t["txn_date"] for t in txns if t.get("txn_date")]
     if dates:
         latest_date = max(dates)
         d = date.fromisoformat(latest_date)
-        latest_year, latest_month = d.year, d.month
+        fy, month = tx_svc.date_to_fy_start(d.year, d.month), d.month
     else:
-        latest_year, latest_month = date.today().year, date.today().month
+        now = date.today()
+        fy, month = tx_svc.date_to_fy_start(now.year, now.month), now.month
 
     resp = HTMLResponse("")
     resp.headers["HX-Trigger"] = json.dumps({
-        "txImported": {"year": latest_year, "month": latest_month, "count": count}
+        "txImported": {"fy": fy, "month": month, "count": count}
     })
     return resp
 
@@ -148,22 +157,24 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
 @router.get("/transactions/{txn_id}/edit", response_class=HTMLResponse)
 async def transaction_edit_form(request: Request, txn_id: int):
     db = await get_db()
-    txn = await tx_svc.get_transaction(db, txn_id)
+    txn = await tx_svc.get_transaction_with_category(db, txn_id)
     if not txn:
         raise HTTPException(404)
+    categories = await tx_svc.list_categories_for_transactions(db)
     return templates.TemplateResponse(
-        request, "partials/tx_edit_form.html", {"txn": txn}
+        request, "partials/tx_edit_form.html", {"txn": txn, "categories": categories}
     )
 
 
 @router.get("/transactions/{txn_id}/cancel", response_class=HTMLResponse)
 async def transaction_cancel_edit(request: Request, txn_id: int):
     db = await get_db()
-    txn = await tx_svc.get_transaction(db, txn_id)
+    txn = await tx_svc.get_transaction_with_category(db, txn_id)
     if not txn:
         raise HTTPException(404)
+    categories = await tx_svc.list_categories_for_transactions(db)
     return templates.TemplateResponse(
-        request, "partials/tx_row.html", {"txn": txn}
+        request, "partials/tx_row.html", {"txn": txn, "categories": categories}
     )
 
 
@@ -201,6 +212,17 @@ async def transaction_update(
     )
 
 
+@router.patch("/transactions/{txn_id}/category", response_class=HTMLResponse)
+async def transaction_update_category(
+    request: Request, txn_id: int, category_id: int = Form(...),
+):
+    db = await get_db()
+    updated = await tx_svc.update_transaction_category(db, txn_id, category_id)
+    if not updated:
+        raise HTTPException(404)
+    return HTMLResponse("", status_code=200)
+
+
 @router.delete("/transactions/{txn_id}", response_class=HTMLResponse)
 async def transaction_delete(request: Request, txn_id: int):
     db = await get_db()
@@ -210,12 +232,36 @@ async def transaction_delete(request: Request, txn_id: int):
     return HTMLResponse("", status_code=200, headers={"HX-Trigger": "txDeleted"})
 
 
+@router.get("/transactions/bulk/summary")
+async def bulk_delete_summary(account_id: int, fy: int, month: int):
+    db = await get_db()
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    summary = await tx_svc.get_month_summary(db, account_id, calendar_year, month)
+    month_label = f"{month_abbr[month]} {calendar_year} (FY {fy}-{fy + 1})"
+    return JSONResponse({
+        "count": summary["txn_count"],
+        "total_debit": summary["total_debit"],
+        "total_credit": summary["total_credit"],
+        "month_label": month_label,
+    })
+
+
+@router.delete("/transactions/bulk/delete")
+async def bulk_delete_execute(account_id: int, fy: int, month: int):
+    db = await get_db()
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    deleted = await tx_svc.delete_transactions_by_month(db, account_id, calendar_year, month)
+    return JSONResponse({"deleted": deleted})
+
+
+
 @router.get("/transactions/export/csv")
-async def export_csv(account_id: int, year: int, month: int):
+async def export_csv(account_id: int, fy: int, month: int):
     import io, csv as csv_mod
     db = await get_db()
-    txns = await tx_svc.list_transactions(db, account_id, year, month)
-    summary = await tx_svc.get_summary(db, account_id, year, month)
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
+    summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
 
     output = io.StringIO()
     writer = csv_mod.writer(output)
@@ -228,7 +274,7 @@ async def export_csv(account_id: int, year: int, month: int):
 
     output.seek(0)
     content = output.getvalue().encode("utf-8-sig")
-    fname = f"transactions_{account_id}_{year}_{month:02d}.csv"
+    fname = f"transactions_{account_id}_{fy}_{month:02d}.csv"
     return StreamingResponse(
         iter([content]),
         media_type="text/csv",
@@ -237,14 +283,15 @@ async def export_csv(account_id: int, year: int, month: int):
 
 
 @router.get("/transactions/export/xlsx")
-async def export_xlsx(account_id: int, year: int, month: int):
+async def export_xlsx(account_id: int, fy: int, month: int):
     import io
     import openpyxl
     from openpyxl.styles import Font, Alignment
 
     db = await get_db()
-    txns = await tx_svc.list_transactions(db, account_id, year, month)
-    summary = await tx_svc.get_summary(db, account_id, year, month)
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
+    summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
 
     wb = openpyxl.Workbook()
@@ -254,7 +301,7 @@ async def export_xlsx(account_id: int, year: int, month: int):
     ws.append(["Transactions"])
     ws.cell(row=1, column=1).font = Font(bold=True, size=14)
     acct_label = f"{account['bank_name']} - ****{account['account_number'][-4:]}" if account else f"Account #{account_id}"
-    ws.append([acct_label, f"{year}-{month:02d}"])
+    ws.append([acct_label, f"FY {fy}-{fy + 1} - {month_abbr[month]} {calendar_year}"])
     ws.cell(row=2, column=1).font = Font(italic=True, size=11)
     ws.append([])
 
@@ -289,7 +336,7 @@ async def export_xlsx(account_id: int, year: int, month: int):
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    fname = f"transactions_{account_id}_{year}_{month:02d}.xlsx"
+    fname = f"transactions_{account_id}_{fy}_{month:02d}.xlsx"
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -298,13 +345,14 @@ async def export_xlsx(account_id: int, year: int, month: int):
 
 
 @router.get("/transactions/export/pdf")
-async def export_pdf(account_id: int, year: int, month: int):
+async def export_pdf(account_id: int, fy: int, month: int):
     import io
     from fpdf import FPDF
 
     db = await get_db()
-    txns = await tx_svc.list_transactions(db, account_id, year, month)
-    summary = await tx_svc.get_summary(db, account_id, year, month)
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
+    summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
 
     pdf = FPDF()
@@ -319,8 +367,8 @@ async def export_pdf(account_id: int, year: int, month: int):
         acct_label = f"{account['bank_name']} - ****{account['account_number'][-4:]}"
     else:
         acct_label = f"Account #{account_id}"
-    month_label = f"{month:02d} - {month_abbr[month]}"
-    pdf.cell(0, 7, f"{acct_label}  |  {year}-{month_label}", new_x="LMARGIN", new_y="NEXT", align="C")
+    month_label = f"{month_abbr[month]} {calendar_year}"
+    pdf.cell(0, 7, f"{acct_label}  |  FY {fy}-{fy + 1} - {month_label}", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 9)
@@ -359,7 +407,7 @@ async def export_pdf(account_id: int, year: int, month: int):
     buf = io.BytesIO()
     buf.write(pdf.output())
     buf.seek(0)
-    fname = f"transactions_{account_id}_{year}_{month:02d}.pdf"
+    fname = f"transactions_{account_id}_{fy}_{month:02d}.pdf"
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="application/pdf",

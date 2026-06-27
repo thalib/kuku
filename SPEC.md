@@ -62,22 +62,23 @@ Table name: `bank_accounts`. Created by `init_db()`.
 ## Bank Transactions
 
 **URL**: `/banks/transactions`
-**Purpose**: Import, view, edit, delete, and export bank transactions for a selected account. Transactions are grouped by year and month.
+**Purpose**: Import, view, edit, delete, and export bank transactions for a selected account. Transactions are grouped by Indian financial year (April-March) and month.
 
 ### Fields
 
-| Field      | Required | Notes                                    |
-|------------|----------|------------------------------------------|
-| account_id | yes      | FK → bank_accounts.id                    |
-| txn_date   | yes      | ISO date (YYYY-MM-DD)                    |
-| value_date | yes      | ISO date (YYYY-MM-DD)                    |
-| narration  | no       | Transaction description                  |
-| reference  | no       | Cheque/reference number                  |
-| debit      | —        | Amount withdrawn (default 0)             |
-| credit     | —        | Amount deposited (default 0)             |
-| balance    | —        | Closing balance after transaction        |
-| created_at | —        | Auto-set on create                       |
-| updated_at | —        | Auto-set on every update                 |
+| Field        | Required | Notes                                          |
+|--------------|----------|-------------------------------------------------|
+| account_id   | yes      | FK → bank_accounts.id                          |
+| txn_date     | yes      | ISO date (YYYY-MM-DD)                          |
+| value_date   | yes      | ISO date (YYYY-MM-DD)                          |
+| narration    | no       | Transaction description                        |
+| reference    | no       | Cheque/reference number (shown below narration) |
+| debit        | —        | Amount withdrawn (default 0)                   |
+| credit       | —        | Amount deposited (default 0)                   |
+| balance      | —        | Closing balance after transaction              |
+| category_id  | —        | FK → transaction_categories.id (nullable)     |
+| created_at   | —        | Auto-set on create                             |
+| updated_at   | —        | Auto-set on every update                       |
 
 ### Import Formats (auto-detected via headers)
 
@@ -85,41 +86,76 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - **Single-column** (e.g. IDBI): `Amount (INR)` + `CR/DR` indicator column
 - Supports CSV, XLS, XLSX
 
+### Categorisation
+
+- Every imported transaction is auto-classified as `EXPENSE:Uncategorized Expense` (debit > 0) or `INCOME:Uncategorized Income` (credit > 0) by default.
+- The `Category` column displays a unified **searchable select widget** for every transaction. Users type to filter (full-text search by category name and type), then click or use keyboard (Up/Down/Enter/Escape) to pick a category. No separate search input and select dropdown — it's one widget.
+- When any category is changed, a global **Save / Cancel** bar appears above the table. Changed rows are highlighted with a yellow left border.
+- **Save**: fires a PATCH per changed row, then reloads the table and removes the dirty row highlights.
+- **Cancel**: restores every changed widget to its original value and hides the bar.
+- If the user tries to navigate away with unsaved category changes, a browser `beforeunload` confirmation dialog fires.
+- Unclassified transactions show the widget placeholder ("Search category…").
+
+### Financial Year
+
+- Follows Indian accounting standard: FY runs April to March. E.g., **FY 2025-26** = April 2025 – March 2026.
+- Year dropdown shows `FY {start}-{end}` labels instead of calendar years.
+- Month label combines month and calendar year, e.g., "Apr 2025", "Jan 2026".
+- The filter URL uses the FY start year as the `fy` parameter (e.g., `fy=2025` for FY 2025-26).
+
 ### UI Layout
 
-- Filter bar: account dropdown, year dropdown, month dropdown (MM - MMM) — all in a single row
-- Year dropdown shows only years with uploaded transactions for the selected account
-- Month dropdown shows only months with data for the selected year
-- When no transactions exist for an account, a "No transactions uploaded" message with an Upload button is shown instead of year/month dropdowns
+- Filter bar: account dropdown, FY dropdown, month dropdown (MM - MonthName Year) — all in a single row
+- FY dropdown shows only financial years with uploaded transactions for the selected account
+- Month dropdown shows only months with data for the selected FY
+- When no transactions exist for an account, a "No transactions uploaded" message with an upload button is shown instead of filter dropdowns
 - Summary cards: Total Debit, Total Credit, Net, Transaction Count
 - Transaction table: compact Bootstrap `table-sm table-hover`
+- Columns: Date | Narration (with `REF: reference` below in small muted text, only if reference exists) | Category (always-visible searchable `<select>`, grouped by Income / Expense / Asset / Liability / Equity) | Debit | Credit | Balance | Actions
 - Narration column: multi-line, no truncation
+- Reference: shown inline below narration as `(REF: <value>)` in `text-muted` small font. The `(REF: )` line is omitted entirely when the reference is empty.
 - Actions per row: Edit (inline form via HTMX, textarea for narration), Delete (with confirmation)
-- Import: file upload → preview table → confirm → bulk insert
-- After successful import, filters and table auto-refresh
+- Import: file upload → preview (in modal dialog) → confirm → bulk insert
+- After successful import, filters and table auto-refresh to the imported FY/month
 - Export: CSV, Excel (xlsx), PDF
+- Import workflow and transaction view workflow are isolated in a Bootstrap modal — the preview does not collide with the table area.
+
+### Bulk Delete
+
+- The **Delete Month** button appears in the header bar next to Import when an account is selected.
+- Clicking it opens a modal with:
+  - Warning header (red background)
+  - Count of transactions to delete
+  - Total debit and credit for the month
+  - Text input requiring the user to type `DELETE` to confirm
+  - Confirm button that stays disabled until the exact text matches
+- This two-step confirmation (open modal + type DELETE) follows industry best practice for destructive bulk actions (cf. GitHub repository deletion, Stripe invoice deletion).
+- Backend: `GET /transactions/bulk/summary` returns the summary; `DELETE /transactions/bulk/delete` performs the actual deletion.
 
 ### Routes
 
 | Method | URL                                             | Purpose                              |
 |--------|-------------------------------------------------|--------------------------------------|
 | GET    | /banks/transactions                             | Page                                 |
-| GET    | /banks/transactions/filters?account_id=&selected_year= | Year/month dropdowns (HTMX)          |
-| GET    | /banks/transactions/table?account_id=&year=&month= | Transaction table (HTMX)            |
-| GET    | /banks/transactions/import/form?account_id=     | Import file upload form              |
-| POST   | /banks/transactions/import/preview              | Parse file, show preview             |
+| GET    | /banks/transactions/filters?account_id=&selected_fy=&selected_month= | FY/month dropdowns (HTMX)            |
+| GET    | /banks/transactions/table?account_id=&fy=&month= | Transaction table (HTMX)            |
+| GET    | /banks/transactions/import/form?account_id=     | Import file upload form (modal)      |
+| POST   | /banks/transactions/import/preview              | Parse file, show preview (modal)     |
 | POST   | /banks/transactions/import/confirm              | Bulk insert transactions             |
 | GET    | /banks/transactions/{id}/edit                   | Inline edit form (HTMX)              |
 | POST   | /banks/transactions/{id}/update                 | Update single transaction            |
+| PATCH  | /banks/transactions/{id}/category               | Inline category save (returns 200)   |
 | DELETE | /banks/transactions/{id}                        | Delete single transaction            |
 | GET    | /banks/transactions/{id}/cancel                 | Cancel edit, show row (HTMX)         |
+| GET    | /banks/transactions/bulk/summary                | Bulk delete summary (JSON)           |
+| DELETE | /banks/transactions/bulk/delete                 | Bulk delete month's transactions     |
 | GET    | /banks/transactions/export/csv                  | Export as CSV                        |
 | GET    | /banks/transactions/export/xlsx                 | Export as Excel                      |
 | GET    | /banks/transactions/export/pdf                  | Export as PDF                        |
 
 ### Database
 
-Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_accounts`.
+Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_accounts`. `category_id` column is nullable; added via `ALTER TABLE` migration on startup. New transactions without category receive the auto-classified default on insert; existing unclassified transactions are retroactively classified on server start. System categories `Uncategorized Income` and `Uncategorized Expense` are seeded alongside the 39 default categories.
 
 ## Transaction Categories
 

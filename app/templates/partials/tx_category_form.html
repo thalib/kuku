@@ -1,0 +1,27 @@
+<select class="form-select form-select-sm tx-cat-select" id="tx-cat-select-{{ txn['id'] }}" name="category_id">
+    <option value="" disabled {% if not txn.get("category_id") %}selected{% endif %}>Select…</option>
+    {% for type_name in ("Income", "Expense", "Asset", "Liability", "Equity") %}
+        {% set type_cats = [] %}
+        {% for c in categories %}{% if c["type"] == type_name %}{% set _ = type_cats.append(c) %}{% endif %}{% endfor %}
+        {% if type_cats %}
+        <optgroup label="{{ type_name }}">
+        {% for c in type_cats %}
+            <option value="{{ c['id'] }}" {% if txn.get("category_id") == c["id"] %}selected{% endif %}>{{ c["type"]|upper }}:{{ c["name"] }}</option>
+        {% endfor %}
+        </optgroup>
+        {% endif %}
+    {% endfor %}
+</select>
+<div class="d-flex gap-1 mt-1">
+    <button type="button" class="btn btn-primary btn-sm py-0 px-2 tx-cat-save-btn"
+            id="tx-cat-save-{{ txn['id'] }}"
+            hx-patch="/banks/transactions/{{ txn['id'] }}/category"
+            hx-include="#tx-cat-select-{{ txn['id'] }}"
+            hx-target="#tx-cat-{{ txn['id'] }}"
+            hx-swap="outerHTML">
+        <i class="bi bi-check-lg"></i> Save
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm py-0 px-2 tx-cat-cancel-btn" data-txn-id="{{ txn['id'] }}">
+        <i class="bi bi-x-lg"></i> Cancel
+    </button>
+</div>
