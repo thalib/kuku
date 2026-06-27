@@ -48,11 +48,11 @@ class TestCategoriesSeeding:
     def test_system_categories_seeded_on_init(self, client):
         resp = client.get("/banks/categories")
         body = resp.text
-        assert "Income:Sales Revenue" in body
-        assert "Expense:Salaries &amp; Wages" in body
-        assert "Asset:Cash &amp; Bank" in body
-        assert "Liability:Accounts Payable" in body
-        assert "Equity:Owner Capital" in body
+        assert "INCOME:Sales Revenue" in body
+        assert "EXPENSE:Salaries &amp; Wages" in body
+        assert "ASSET:Cash &amp; Bank" in body
+        assert "LIABILITY:Accounts Payable" in body
+        assert "EQUITY:Owner Capital" in body
 
     def test_system_categories_seeded_once(self, client):
         from app.services.categories import list_categories

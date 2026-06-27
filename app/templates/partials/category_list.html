@@ -15,7 +15,7 @@
                 {% for c in categories %}
                     <tr>
                         <td>
-                            <span class="fw-semibold">{{ c["type"] }}:{{ c["name"] }}</span>
+                            <span class="fw-semibold">{{ c["type"]|upper }}:{{ c["name"] }}</span>
                         </td>
                         <td>
                             {% if c["type"] == "Income" %}

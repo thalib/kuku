@@ -83,6 +83,11 @@ class TestTransactionsPage:
     def test_page_shows_empty_state_when_no_accounts(self, client):
         assert "No active bank accounts" in client.get("/banks/transactions").text
 
+    def test_no_view_button_on_page(self, client, _seed_account):
+        body = client.get("/banks/transactions").text
+        assert "id=\"btnApply\"" not in body
+        assert ">View<" not in body
+
 
 class TestTransactionsFilters:
     def test_filters_returns_200(self, client, _seed_transactions):
@@ -104,6 +109,11 @@ class TestTransactionsFilters:
     def test_filters_show_available_years_with_data(self, client, _seed_transactions):
         body = client.get(f"/banks/transactions/filters?account_id={_seed_transactions['account']['id']}").text
         assert "2024" in body
+
+    def test_filters_selected_month_is_respected(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        body = client.get(f"/banks/transactions/filters?account_id={aid}&selected_year=2024&selected_month=4").text
+        assert 'value="4" selected' in body
 
 
 class TestTransactionsTable:
@@ -169,7 +179,11 @@ class TestCSVImport:
             data={"account_id": str(_seed_account["id"]), "data": json.dumps(txns)},
         )
         assert resp.status_code == 200
-        assert "NEFT" in resp.text
+        trigger = json.loads(resp.headers["HX-Trigger"])
+        details = trigger["txImported"]
+        assert details["year"] == 2024
+        assert details["month"] == 4
+        assert details["count"] == 3
 
         aid = _seed_account["id"]
         body = client.get(f"/banks/transactions/table?account_id={aid}&year=2024&month=4").text

@@ -46,7 +46,7 @@ async def transactions_page(request: Request):
 
 
 @router.get("/transactions/filters", response_class=HTMLResponse)
-async def transactions_filters(request: Request, account_id: int, selected_year: int | None = None):
+async def transactions_filters(request: Request, account_id: int, selected_year: int | None = None, selected_month: int | None = None):
     db = await get_db()
     years = await tx_svc.get_available_years(db, account_id)
     if not years:
@@ -56,8 +56,9 @@ async def transactions_filters(request: Request, account_id: int, selected_year:
     avail = await tx_svc.get_available_months(db, account_id, yr)
     month_map = dict(MONTHS)
     months = [(m, month_map[m]) for m in avail]
+    sel_month = selected_month if selected_month and selected_month in avail else min(avail)
     ctx = {"no_data": False, "account_id": account_id, "years": years,
-           "months": months, "selected_year": yr, "selected_month": min(avail)}
+           "months": months, "selected_year": yr, "selected_month": sel_month}
     return templates.TemplateResponse(request, "partials/tx_filters.html", ctx)
 
 
@@ -137,22 +138,10 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
     else:
         latest_year, latest_month = date.today().year, date.today().month
 
-    txns_list = await tx_svc.list_transactions(db, account_id, latest_year, latest_month)
-    summary = await tx_svc.get_summary(db, account_id, latest_year, latest_month)
-    account = await bank_svc.get_account(db, account_id)
-    month_label = f"{latest_month:02d} - {month_abbr[latest_month]}"
-    ctx = {
-        "transactions": txns_list,
-        "summary": summary,
-        "account": account,
-        "account_id": account_id,
-        "year": latest_year,
-        "month": latest_month,
-        "month_label": month_label,
-        "import_count": count,
-    }
-    resp = templates.TemplateResponse(request, "partials/tx_table.html", ctx)
-    resp.headers["HX-Trigger"] = "txImported"
+    resp = HTMLResponse("")
+    resp.headers["HX-Trigger"] = json.dumps({
+        "txImported": {"year": latest_year, "month": latest_month, "count": count}
+    })
     return resp
 
 

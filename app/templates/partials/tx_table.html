@@ -21,13 +21,6 @@
     </div>
 </div>
 
-{% if import_count %}
-<div class="alert alert-success py-2 small alert-dismissible fade show" role="alert">
-    <i class="bi bi-check-circle me-1"></i> {{ import_count }} transactions imported successfully.
-    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
-
 {% if transactions %}
 <div class="card border-0 shadow-sm">
     <div class="table-responsive">

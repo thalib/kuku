@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">Transactions</h1>
         <div>
-            <button class="btn btn-outline-primary btn-sm me-2" id="btnImport">
+            <button class="btn btn-outline-primary btn-sm me-2" id="btnImport" disabled>
                 <i class="bi bi-upload me-1"></i> Import
             </button>
             <span class="dropdown d-inline-block">
@@ -38,15 +38,24 @@
                     </select>
                 </div>
                 <div class="col-auto d-flex gap-2 align-items-center" id="hx-filters"></div>
-                <div class="col-auto">
-                    <button type="button" class="btn btn-sm btn-primary" id="btnApply"><i class="bi bi-filter me-1"></i> View</button>
-                </div>
             </div>
         </div>
     </div>
 
-    <div id="hx-import-area"></div>
+    <div id="hx-import-alert"></div>
     <div id="hx-table-area"></div>
+
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title mb-0" id="importModalLabel">Import Transactions</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="import-modal-body"></div>
+            </div>
+        </div>
+    </div>
 
     {% else %}
     <div class="card border-0 shadow-sm">
@@ -61,6 +70,8 @@
 {% block extra_scripts %}
 <script>
 (function(){
+    var importModal = null;
+
     function getFilters(){
         var sel = document.getElementById('selAccount');
         var yr = document.getElementById('selYear');
@@ -71,10 +82,13 @@
             month: mo ? mo.value : ''
         };
     }
+
     function loadTable(){
         var f = getFilters();
         if (!f.account_id || !f.year || !f.month) return;
-        htmx.ajax('GET', '/banks/transactions/table?account_id='+f.account_id+'&year='+f.year+'&month='+f.month, '#hx-table-area');
+        htmx.ajax('GET',
+            '/banks/transactions/table?account_id='+f.account_id+'&year='+f.year+'&month='+f.month,
+            '#hx-table-area');
         document.getElementById('btnExport').style.display = '';
         var base = '/banks/transactions/export/';
         var q = '?account_id='+f.account_id+'&year='+f.year+'&month='+f.month;
@@ -82,45 +96,62 @@
         document.getElementById('expXLSX').href = base+'xlsx'+q;
         document.getElementById('expPDF').href = base+'pdf'+q;
     }
-    document.getElementById('btnApply').addEventListener('click', loadTable);
-    document.addEventListener('click', function(e){
-        if (e.target.id === 'btnFilterImport' || e.target.closest('#btnFilterImport')) {
-            var sel = document.getElementById('selAccount');
-            if (sel && sel.value) {
-                htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#hx-import-area');
-            }
-        }
-    });
+
     document.addEventListener('change', function(e){
-        if (e.target.id === 'selYear') {
+        if (e.target.id === 'selAccount'){
+            var btn = document.getElementById('btnImport');
+            if (btn) btn.disabled = !e.target.value;
+        }
+        if (e.target.id === 'selYear'){
             var sel = document.getElementById('selAccount');
-            htmx.ajax('GET', '/banks/transactions/filters?account_id='+sel.value+'&selected_year='+e.target.value, '#hx-filters');
+            htmx.ajax('GET',
+                '/banks/transactions/filters?account_id='+sel.value+'&selected_year='+e.target.value,
+                '#hx-filters');
         }
         if (e.target.id === 'selMonth') loadTable();
     });
+
     document.addEventListener('htmx:afterSwap', function(e){
         if (e.detail.target.id === 'hx-filters') loadTable();
     });
 
     document.getElementById('btnImport').addEventListener('click', function(){
-        var area = document.getElementById('hx-import-area');
-        if (area.innerHTML.trim()) { area.innerHTML = ''; return; }
+        if (!importModal) importModal = new bootstrap.Modal(document.getElementById('importModal'));
         var sel = document.getElementById('selAccount');
-        if (!sel || !sel.value) {
-            area.innerHTML = '<div class="alert alert-warning py-2 small">Select a bank account first.</div>';
-            return;
-        }
-        htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#hx-import-area');
+        if (!sel || !sel.value) return;
+        var body = document.getElementById('import-modal-body');
+        body.innerHTML = '<div class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm"></div> Loading…</div>';
+        importModal.show();
+        htmx.ajax('GET', '/banks/transactions/import/form?account_id='+sel.value, '#import-modal-body');
     });
 
-    document.addEventListener('txImported', function(){
-        var area = document.getElementById('hx-import-area');
-        if (area) area.innerHTML = '';
-        var sel = document.getElementById('selAccount');
-        if (sel && sel.value) {
-            htmx.ajax('GET', '/banks/transactions/filters?account_id='+sel.value, '#hx-filters');
-            loadTable();
+    document.addEventListener('htmx:afterSwap', function(e){
+        if (e.detail.target.id === 'import-modal-body'){
+            var label = document.querySelector('#import-modal-body .modal-title-label');
+            document.getElementById('importModalLabel').textContent =
+                label ? label.textContent : 'Import Transactions';
         }
+    });
+
+    document.addEventListener('txImported', function(e){
+        if (importModal) importModal.hide();
+        var sel = document.getElementById('selAccount');
+        if (!sel || !sel.value) return;
+        var detail = (e.detail && e.detail.value) ? e.detail.value : {};
+        var count = detail.count || '?';
+
+        var alertDiv = document.getElementById('hx-import-alert');
+        alertDiv.innerHTML =
+            '<div class="alert alert-success py-2 small alert-dismissible fade show mb-3" role="alert">' +
+            '<i class="bi bi-check-circle me-1"></i> ' + count + ' transactions imported successfully.' +
+            '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+        setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
+
+        htmx.ajax('GET',
+            '/banks/transactions/filters?account_id='+sel.value+
+                (detail.year ? '&selected_year='+detail.year : '')+
+                (detail.month ? '&selected_month='+detail.month : ''),
+            '#hx-filters');
     });
 
     document.addEventListener('txDeleted', function(){ loadTable(); });
