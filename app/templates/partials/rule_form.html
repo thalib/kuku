@@ -16,12 +16,12 @@
         <form hx-post="/banks/rules/{{ rule['id'] }}/update"
               hx-target="#hx-rule-list"
               hx-swap="outerHTML"
-              hx-on::after-request="var el=document.getElementById('rule-form-card'); if(el) { var listEl=document.getElementById('hx-rule-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"rule-form-card\"></div>' } }">
+              hx-on::after-request='var el=document.getElementById("rule-form-card"); if(el) { var listEl=document.getElementById("hx-rule-list"); if (listEl && !listEl.querySelector("form")) { el.outerHTML="<div id=\"rule-form-card\"></div>" } }'>
         {% else %}
         <form hx-post="/banks/rules"
               hx-target="#hx-rule-list"
               hx-swap="outerHTML"
-              hx-on::after-request="var el=document.getElementById('rule-form-card'); if(el) { var listEl=document.getElementById('hx-rule-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"rule-form-card\"></div>' } }">
+              hx-on::after-request='var el=document.getElementById("rule-form-card"); if(el) { var listEl=document.getElementById("hx-rule-list"); if (listEl && !listEl.querySelector("form")) { el.outerHTML="<div id=\"rule-form-card\"></div>" } }'>
         {% endif %}
             <div class="row g-3">
                 <div class="col-md-4">

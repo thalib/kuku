@@ -16,12 +16,12 @@
         <form hx-post="/banks/categories/{{ category['id'] }}/update"
               hx-target="#hx-category-list"
               hx-swap="outerHTML"
-              hx-on::after-request="var el=document.getElementById('category-form-card'); if(el) { var listEl=document.getElementById('hx-category-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"category-form-card\"></div>' } }">
+              hx-on::after-request='var el=document.getElementById("category-form-card"); if(el) { var listEl=document.getElementById("hx-category-list"); if (listEl && !listEl.querySelector("form")) { el.outerHTML="<div id=\"category-form-card\"></div>" } }'>
         {% else %}
         <form hx-post="/banks/categories"
               hx-target="#hx-category-list"
               hx-swap="outerHTML"
-              hx-on::after-request="var el=document.getElementById('category-form-card'); if(el) { var listEl=document.getElementById('hx-category-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"category-form-card\"></div>' } }">
+              hx-on::after-request='var el=document.getElementById("category-form-card"); if(el) { var listEl=document.getElementById("hx-category-list"); if (listEl && !listEl.querySelector("form")) { el.outerHTML="<div id=\"category-form-card\"></div>" } }'>
         {% endif %}
             <div class="row g-3">
                 <div class="col-md-6">
