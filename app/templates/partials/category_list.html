@@ -26,10 +26,10 @@
                             <span class="badge bg-secondary-subtle text-secondary border"><i class="bi bi-lock-fill me-1"></i>System</span>
                             {% else %}
                             <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-secondary"
-                                        hx-get="/banks/categories/{{ c['id'] }}/edit"
-                                        hx-target="#category-form-card"
-                                        hx-swap="outerHTML">
+                                    <button class="btn btn-outline-secondary"
+                                            hx-get="/banks/categories/{{ c['id'] }}/edit"
+                                            hx-target="#category-form-card"
+                                            hx-swap="innerHTML">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button class="btn btn-outline-danger"

@@ -122,6 +122,26 @@ class TestRuleToggle:
         assert "TOGGLETEST" in page2.content()
 
 
+class TestRuleCancelReopen:
+    def test_cancel_then_add_reopens_form(self, page_goto):
+        page = page_goto("/banks/rules")
+        page.evaluate('''() => {
+            window._targetErrors = [];
+            document.addEventListener("htmx:targetError", function(e) {
+                window._targetErrors.push(e.detail ? e.detail.target : "");
+            });
+        }''')
+        page.get_by_text("Add Rule").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#rule-form-card form").is_visible()
+        page.get_by_text("Cancel").click()
+        page.wait_for_load_state("networkidle")
+        page.get_by_text("Add Rule").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#rule-form-card form").is_visible()
+        assert page.evaluate("window._targetErrors") == []
+
+
 class TestRuleDelete:
     def test_delete_rule_via_api(self, api, page_goto):
         api.post("/banks/categories", data={

@@ -123,6 +123,63 @@ class TestBankAccountToggle:
             assert "Toggle Account" in page2.content()
 
 
+class TestBankAccountCancelReopen:
+    def test_cancel_then_add_reopens_form(self, page_goto):
+        page = page_goto("/banks/manage")
+        page.evaluate('''() => {
+            window._targetErrors = [];
+            document.addEventListener("htmx:targetError", function(e) {
+                window._targetErrors.push(e.detail ? e.detail.target : "");
+            });
+        }''')
+        page.get_by_text("Add Bank Account").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#account-form-card form").is_visible()
+        page.get_by_text("Cancel").click()
+        page.wait_for_load_state("networkidle")
+        page.get_by_text("Add Bank Account").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#account-form-card form").is_visible()
+        assert page.evaluate("window._targetErrors") == []
+
+    def test_close_button_then_add_reopens_form(self, page_goto):
+        page = page_goto("/banks/manage")
+        page.evaluate('''() => {
+            window._targetErrors = [];
+            document.addEventListener("htmx:targetError", function(e) {
+                window._targetErrors.push(e.detail ? e.detail.target : "");
+            });
+        }''')
+        page.get_by_text("Add Bank Account").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#account-form-card form").is_visible()
+        page.locator("#account-form-card .btn-close").click()
+        page.wait_for_load_state("networkidle")
+        page.get_by_text("Add Bank Account").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#account-form-card form").is_visible()
+        assert page.evaluate("window._targetErrors") == []
+
+    def test_multiple_cancel_add_cycles(self, page_goto):
+        page = page_goto("/banks/manage")
+        page.evaluate('''() => {
+            window._targetErrors = [];
+            document.addEventListener("htmx:targetError", function(e) {
+                window._targetErrors.push(e.detail ? e.detail.target : "");
+            });
+        }''')
+        for _ in range(3):
+            page.get_by_text("Add Bank Account").click()
+            page.wait_for_load_state("networkidle")
+            assert page.locator("#account-form-card form").is_visible()
+            page.get_by_text("Cancel").click()
+            page.wait_for_load_state("networkidle")
+        page.get_by_text("Add Bank Account").click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#account-form-card form").is_visible()
+        assert page.evaluate("window._targetErrors") == []
+
+
 class TestBankAccountDelete:
     def test_delete_via_api(self, api, page_goto):
         api.post("/banks/accounts", data={
