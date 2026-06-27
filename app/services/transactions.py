@@ -492,3 +492,59 @@ async def get_uncategorized_category_ids(db: aiosqlite.Connection) -> dict[str, 
     for row in await cursor.fetchall():
         result[row["type"]] = row["id"]
     return result
+
+
+async def apply_rules_to_transactions(db: aiosqlite.Connection, account_id: int, year: int, month: int) -> int:
+    from app.services import rules as rule_svc
+    start_date = f"{year:04d}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1:04d}-01-01"
+    else:
+        end_date = f"{year:04d}-{month + 1:02d}-01"
+
+    rules = await rule_svc.list_rules(db)
+    active_rules = [r for r in rules if r["is_active"]]
+    if not active_rules:
+        return 0
+
+    cursor = await db.execute(
+        """SELECT t.id, t.narration, t.debit, t.credit, t.category_id
+           FROM bank_transactions t
+           WHERE t.account_id = ? AND t.txn_date >= ? AND t.txn_date < ?""",
+        (account_id, start_date, end_date),
+    )
+    txns = await cursor.fetchall()
+
+    updated = 0
+    for txn in txns:
+        narration = (txn["narration"] or "").strip()
+        if not narration:
+            continue
+        debit = txn["debit"] or 0
+        credit = txn["credit"] or 0
+
+        for rule in active_rules:
+            applies_to = rule.get("applies_to", "both")
+            if applies_to == "debit" and debit <= 0:
+                continue
+            if applies_to == "credit" and credit <= 0:
+                continue
+
+            match = False
+            if rule["match_type"] == "contains":
+                match = rule["search_text"].lower() in narration.lower()
+            else:
+                match = narration.lower() == rule["search_text"].lower()
+
+            if match and txn["category_id"] != rule["category_id"]:
+                await db.execute(
+                    "UPDATE bank_transactions SET category_id = ?, updated_at = ? WHERE id = ?",
+                    (rule["category_id"], _now(), txn["id"]),
+                )
+                updated += 1
+            if match:
+                break
+
+    if updated > 0:
+        await db.commit()
+    return updated

@@ -232,6 +232,14 @@ async def transaction_delete(request: Request, txn_id: int):
     return HTMLResponse("", status_code=200, headers={"HX-Trigger": "txDeleted"})
 
 
+@router.post("/transactions/rules/run", response_class=JSONResponse)
+async def run_rules(account_id: int = Form(...), fy: int = Form(...), month: int = Form(...)):
+    db = await get_db()
+    calendar_year = tx_svc.fy_to_calendar(fy, month)
+    updated = await tx_svc.apply_rules_to_transactions(db, account_id, calendar_year, month)
+    return JSONResponse({"updated": updated})
+
+
 @router.get("/transactions/bulk/summary")
 async def bulk_delete_summary(account_id: int, fy: int, month: int):
     db = await get_db()

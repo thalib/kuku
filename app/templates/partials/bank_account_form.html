@@ -16,12 +16,12 @@
         <form hx-post="/banks/accounts/{{ account['id'] }}/update"
               hx-target="#hx-account-list"
               hx-swap="outerHTML"
-              hx-on::after-request="document.getElementById('account-form-card')?.remove()">
+              hx-on::after-request="var el=document.getElementById('account-form-card'); if(el) { var listEl=document.getElementById('hx-account-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"account-form-card\"></div>' } }">
         {% else %}
         <form hx-post="/banks/accounts"
               hx-target="#hx-account-list"
               hx-swap="outerHTML"
-              hx-on::after-request="document.getElementById('account-form-card')?.remove()">
+              hx-on::after-request="var el=document.getElementById('account-form-card'); if(el) { var listEl=document.getElementById('hx-account-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"account-form-card\"></div>' } }">
         {% endif %}
             <div class="row g-3">
                 <div class="col-md-6">

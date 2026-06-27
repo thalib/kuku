@@ -422,3 +422,49 @@ class TestBulkDelete:
         assert resp.status_code == 200
         data = resp.json()
         assert data["deleted"] == 0
+
+
+class TestRunRules:
+    def test_run_rules_returns_json(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        resp = client.post("/banks/transactions/rules/run", data={"account_id": aid, "fy": 2024, "month": 4})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "updated" in data
+
+    def test_run_rules_updates_categories(self, client, _seed_transactions):
+        aid = _seed_transactions["account"]["id"]
+        from app.services.categories import create_category
+        from app.services.rules import create_rule
+        from app.database import get_db
+        from app.models.categories import CategoryCreate
+        from app.models.rules import RuleCreate
+        import asyncio
+
+        async def _setup():
+            db = await get_db()
+            cat = await create_category(
+                db,
+                CategoryCreate(
+                    name="Rule Test Cat",
+                    type="Expense",
+                    description="For run rules test",
+                ),
+            )
+            return await create_rule(
+                db,
+                RuleCreate(
+                    search_text="NEFT",
+                    match_type="contains",
+                    category_id=cat["id"],
+                    priority=1,
+                    applies_to="both",
+                    is_active=True,
+                ),
+            )
+
+        asyncio.get_event_loop().run_until_complete(_setup())
+        resp = client.post("/banks/transactions/rules/run", data={"account_id": aid, "fy": 2024, "month": 4})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["updated"] > 0

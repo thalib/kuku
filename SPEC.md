@@ -12,6 +12,7 @@
 | BANKS   | Manage       | /banks/manage            |
 | BANKS   | Transaction  | /banks/transactions      |
 | BANKS   | Categories   | /banks/categories        |
+| BANKS   | Rules        | /banks/rules             |
 | REPORTS | Reports      | /reports                 |
 | ADMIN   | Settings     | /settings                |
 
@@ -132,6 +133,16 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - This two-step confirmation (open modal + type DELETE) follows industry best practice for destructive bulk actions (cf. GitHub repository deletion, Stripe invoice deletion).
 - Backend: `GET /transactions/bulk/summary` returns the summary; `DELETE /transactions/bulk/delete` performs the actual deletion.
 
+### Run Rules
+
+- The **Run Rules** button appears in the header bar next to Delete Month when an account is selected.
+- Clicking it fires `POST /banks/transactions/rules/run` with `account_id`, `fy`, `month`.
+- Backend evaluates all active classification rules in ascending priority order against every transaction in the selected month.
+- A rule applies only if its `applies_to` matches the transaction (`both` always matches, `debit` requires `debit > 0`, `credit` requires `credit > 0`).
+- First matching rule wins; transaction category is updated if different.
+- Response JSON: `{"updated": <count>}`.
+- Frontend shows a success alert with the count and reloads the table.
+
 ### Routes
 
 | Method | URL                                             | Purpose                              |
@@ -149,6 +160,7 @@ Table name: `bank_accounts`. Created by `init_db()`.
 | GET    | /banks/transactions/{id}/cancel                 | Cancel edit, show row (HTMX)         |
 | GET    | /banks/transactions/bulk/summary                | Bulk delete summary (JSON)           |
 | DELETE | /banks/transactions/bulk/delete                 | Bulk delete month's transactions     |
+| POST   | /banks/transactions/rules/run                   | Apply classification rules (JSON)    |
 | GET    | /banks/transactions/export/csv                  | Export as CSV                        |
 | GET    | /banks/transactions/export/xlsx                 | Export as Excel                      |
 | GET    | /banks/transactions/export/pdf                  | Export as PDF                        |
@@ -208,3 +220,62 @@ Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_account
 ### Database
 
 Table name: `transaction_categories`. Created by `init_db()`. System categories seeded on first `init_db()` run via `init_categories()`.
+
+## Auto-Classification Rules
+
+**URL**: `/banks/rules`
+**Purpose**: Manage rules that automatically classify bank transactions based on narration text. Rules are evaluated in priority order when transactions are imported or when a user triggers re-classification.
+
+### Fields
+
+| Field          | Required | Notes                                                           |
+|----------------|----------|-----------------------------------------------------------------|
+| search_text    | yes      | Text to search for in the transaction narration                 |
+| match_type     | yes      | One of: `contains` (case-insensitive substring), `equals` (case-insensitive exact match) |
+| category_id    | yes      | FK → transaction_categories.id                                  |
+| priority       | —        | Integer, lower = evaluated first (default 0)                    |
+| applies_to     | —        | One of: `both` (default), `debit`, `credit`                     |
+| is_active      | —        | Boolean, default True (toggle on/off)                           |
+| created_at     | —        | Auto-set on create                                              |
+| updated_at     | —        | Auto-set on every update                                        |
+
+### Matching Logic
+
+- Rules are evaluated in ascending `priority` order.
+- Only active rules (`is_active = 1`) are considered.
+- For each transaction, the first rule whose `search_text` matches the narration wins.
+- `contains`: narration contains `search_text` (case-insensitive).
+- `equals`: narration equals `search_text` (case-insensitive, trimmed).
+- If no rule matches, the transaction keeps its existing category or defaults to uncategorized.
+
+### UI Layout
+
+- Page title: `Classification Rules`
+- Primary action: `+ Add Rule` button → HTMX loads a form card in-place (`#rule-form-card`).
+- List: Bootstrap compact table (`table-sm table-hover align-middle`).
+- Columns: Priority | Search Text | Match Type | Category | Status | Actions
+- Priority column: plain text, sorted ascending (lowest first). Edit priority via the Edit form.
+- Status column: `form-switch` checkbox posts via HTMX to toggle active/inactive.
+- Actions: Edit (HTMX form swap), Delete (`hx-delete` with `hx-confirm`).
+- Category column: shows `TYPE:CategoryName` with a coloured badge.
+- Match type badge: `bg-primary-subtle` for contains, `bg-info-subtle` for equals.
+- Empty state: "No rules yet. Add one to get started."
+- Responses: HTMX requests return the `partials/rule_list.html` partial (swaps the `#hx-rule-list` container). Add form is `partials/rule_form.html` (swaps `#rule-form-card`).
+
+### Routes
+
+| Method   | URL                                | Purpose                         |
+|----------|------------------------------------|---------------------------------|
+| GET      | /banks/rules                       | Page                            |
+| GET      | /banks/rules/form                  | Add form partial                |
+| GET      | /banks/rules/clear-form            | Clear form (HTMX)               |
+| GET      | /banks/rules/{id}/edit             | Edit form partial               |
+| POST     | /banks/rules                       | Create (HTMX)                   |
+| POST     | /banks/rules/{id}/update           | Update rule (HTMX)              |
+| PATCH    | /banks/rules/{id}/priority         | Update priority (HTMX)          |
+| PATCH    | /banks/rules/{id}/toggle           | Toggle active (HTMX)            |
+| DELETE   | /banks/rules/{id}                  | Delete rule (HTMX)              |
+
+### Database
+
+Table name: `classification_rules`. Created by `init_db()`.

@@ -1,0 +1,108 @@
+<div class="card border-0 shadow-sm mb-3" id="rule-form-card">
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <strong class="small text-uppercase">{{ "Edit Rule" if rule else "Add Rule" }}</strong>
+        <button type="button" class="btn-close btn-close-white" aria-label="Close"
+                hx-get="/banks/rules/clear-form"
+                hx-target="#rule-form-card"
+                hx-swap="outerHTML"></button>
+    </div>
+    <div class="card-body">
+        {% if errors %}
+        <div class="alert alert-danger py-2 small mb-3">
+            {% for err in errors %}{{ err }}<br>{% endfor %}
+        </div>
+        {% endif %}
+        {% if rule %}
+        <form hx-post="/banks/rules/{{ rule['id'] }}/update"
+              hx-target="#hx-rule-list"
+              hx-swap="outerHTML"
+              hx-on::after-request="var el=document.getElementById('rule-form-card'); if(el) { var listEl=document.getElementById('hx-rule-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"rule-form-card\"></div>' } }">
+        {% else %}
+        <form hx-post="/banks/rules"
+              hx-target="#hx-rule-list"
+              hx-swap="outerHTML"
+              hx-on::after-request="var el=document.getElementById('rule-form-card'); if(el) { var listEl=document.getElementById('hx-rule-list'); if (listEl && !listEl.querySelector('form')) { el.outerHTML='<div id=\"rule-form-card\"></div>' } }">
+        {% endif %}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Search Text</label>
+                    <input name="search_text" class="form-control form-control-sm"
+                           value="{{ form_search_text if form_search_text is defined else (rule['search_text'] if rule else '') }}"
+                           placeholder="e.g. NEFT, Salary, POS"
+                           required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Match Type</label>
+                    <select name="match_type" class="form-select form-select-sm" required>
+                        <option value="contains"
+                                {% if rule and rule['match_type'] == 'contains' %} selected
+                                {% elif form_match_type is defined and form_match_type == 'contains' %} selected
+                                {% endif %}>
+                            Contains
+                        </option>
+                        <option value="equals"
+                                {% if rule and rule['match_type'] == 'equals' %} selected
+                                {% elif form_match_type is defined and form_match_type == 'equals' %} selected
+                                {% endif %}>
+                            Equals
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Category</label>
+                    <select name="category_id" class="form-select form-select-sm" required>
+                        <option value="">Select category…</option>
+                        {% for c in categories %}
+                        <option value="{{ c['id'] }}"
+                                {% if rule and rule['category_id'] == c['id'] %} selected
+                                {% elif form_category_id is defined and form_category_id|int == c['id'] %} selected
+                                {% endif %}>
+                            {{ c['type']|upper }}:{{ c['name'] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold">Priority</label>
+                    <input name="priority" type="number" class="form-control form-control-sm"
+                           value="{{ form_priority if form_priority is defined else (rule['priority'] if rule else 0) }}"
+                           min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold">Applies To</label>
+                    <select name="applies_to" class="form-select form-select-sm" required>
+                        <option value="both"
+                                {% if rule and rule['applies_to'] == 'both' %} selected
+                                {% elif form_applies_to is defined and form_applies_to == 'both' %} selected
+                                {% endif %}>
+                            Both
+                        </option>
+                        <option value="debit"
+                                {% if rule and rule['applies_to'] == 'debit' %} selected
+                                {% elif form_applies_to is defined and form_applies_to == 'debit' %} selected
+                                {% endif %}>
+                            Debit
+                        </option>
+                        <option value="credit"
+                                {% if rule and rule['applies_to'] == 'credit' %} selected
+                                {% elif form_applies_to is defined and form_applies_to == 'credit' %} selected
+                                {% endif %}>
+                            Credit
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-check-lg me-1"></i> {{ "Update" if rule else "Save" }}
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm"
+                        hx-get="/banks/rules/clear-form"
+                        hx-target="#rule-form-card"
+                        hx-swap="outerHTML">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

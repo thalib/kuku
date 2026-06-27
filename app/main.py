@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from app.config import APP_NAME, NAV_GROUPS
 from app.database import init_db, close_db
-from app.routers import bank_accounts, bank_transactions, categories
+from app.routers import bank_accounts, bank_transactions, categories, rules
 from app.utils.nav import mark_active_nav
 import os
 
@@ -28,6 +28,7 @@ app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
 app.include_router(bank_transactions.router, prefix="/banks", tags=["Transactions"])
 app.include_router(categories.router, prefix="/banks", tags=["Categories"])
+app.include_router(rules.router, prefix="/banks", tags=["Rules"])
 
 
 def _render_page(request: Request, page_url: str, page_name: str):

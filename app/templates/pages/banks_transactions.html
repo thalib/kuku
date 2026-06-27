@@ -8,6 +8,9 @@
             <button class="btn btn-outline-danger btn-sm me-2" id="btnBulkDelete" disabled style="display:none">
                 <i class="bi bi-trash me-1"></i> Delete Month
             </button>
+            <button class="btn btn-outline-success btn-sm me-2" id="btnRunRules" disabled style="display:none">
+                <i class="bi bi-funnel me-1"></i> Run Rules
+            </button>
             <button class="btn btn-outline-primary btn-sm me-2" id="btnImport" disabled>
                 <i class="bi bi-upload me-1"></i> Import
             </button>
@@ -367,6 +370,8 @@
             document.getElementById('btnImport').disabled = !e.target.value;
             document.getElementById('btnBulkDelete').disabled = !e.target.value;
             document.getElementById('btnBulkDelete').style.display = e.target.value ? '' : 'none';
+            document.getElementById('btnRunRules').disabled = !e.target.value;
+            document.getElementById('btnRunRules').style.display = e.target.value ? '' : 'none';
         }
         if (e.target.id === 'selFy'){
             var sel = document.getElementById('selAccount');
@@ -528,6 +533,38 @@
         document.getElementById('bd-confirm-input').value = '';
         document.getElementById('bd-confirm-btn').disabled = true;
         bdPending = null;
+    });
+
+    /* ── Run Rules ────────────────────────────────────────────── */
+
+    document.getElementById('btnRunRules').addEventListener('click', function(){
+        var f = getFilters();
+        if (!f.account_id || !f.fy || !f.month) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…';
+        var form = new FormData();
+        form.append('account_id', f.account_id);
+        form.append('fy', f.fy);
+        form.append('month', f.month);
+        fetch('/banks/transactions/rules/run', {
+            method: 'POST',
+            body: form,
+        }).then(function(r){ return r.json(); }).then(function(d){
+            var alertDiv = document.getElementById('hx-import-alert');
+            var msg = d.updated + ' transaction' + (d.updated === 1 ? '' : 's') + ' updated by rules.';
+            alertDiv.innerHTML =
+                '<div class="alert alert-success py-2 small alert-dismissible fade show mb-3" role="alert">' +
+                '<i class="bi bi-check-circle me-1"></i> ' + msg +
+                '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+            setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
+            loadTable();
+        }).catch(function(err){
+            alert('Failed to run rules: ' + err.message);
+        }).finally(function(){
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-funnel me-1"></i>Run Rules';
+        });
     });
 
     /* ── beforeunload ──────────────────────────────────────────── */

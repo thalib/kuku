@@ -16,6 +16,7 @@ NAV_GROUPS = [
             {"name": "Manage", "url": "/banks/manage", "icon": "bi-bank"},
             {"name": "Transaction", "url": "/banks/transactions", "icon": "bi-arrow-left-right"},
             {"name": "Categories", "url": "/banks/categories", "icon": "bi-tags"},
+            {"name": "Rules", "url": "/banks/rules", "icon": "bi-funnel"},
         ],
     },
     {

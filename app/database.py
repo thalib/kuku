@@ -82,6 +82,43 @@ async def init_db():
         await db.execute("ALTER TABLE bank_transactions ADD COLUMN category_id INTEGER DEFAULT NULL")
     except aiosqlite.OperationalError:
         pass
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS classification_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            search_text TEXT NOT NULL,
+            match_type TEXT NOT NULL CHECK(match_type IN ('contains', 'equals')),
+            category_id INTEGER NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (category_id) REFERENCES transaction_categories(id)
+        )
+    """)
+    # Migration: ensure classification_rules has is_active column (old schema)
+    try:
+        await db.execute("SELECT is_active FROM classification_rules LIMIT 1")
+    except aiosqlite.OperationalError:
+        await db.executescript("""
+            CREATE TABLE IF NOT EXISTS classification_rules_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                search_text TEXT NOT NULL,
+                match_type TEXT NOT NULL CHECK(match_type IN ('contains', 'equals')),
+                category_id INTEGER NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (category_id) REFERENCES transaction_categories(id)
+            );
+            INSERT INTO classification_rules_new SELECT id, search_text, match_type, category_id, priority, 1, created_at, updated_at FROM classification_rules;
+            DROP TABLE classification_rules;
+            ALTER TABLE classification_rules_new RENAME TO classification_rules;
+        """)
+    try:
+        await db.execute("SELECT applies_to FROM classification_rules LIMIT 1")
+    except aiosqlite.OperationalError:
+        await db.execute("ALTER TABLE classification_rules ADD COLUMN applies_to TEXT NOT NULL DEFAULT 'both'")
     from app.services.categories import init_categories
     await init_categories(db)
     from app.services.transactions import auto_classify_existing_transactions
