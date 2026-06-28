@@ -192,7 +192,7 @@ class TestBankAccountDelete:
         })
         import re
         html = page_goto("/banks/manage").content()
-        m = re.search(r'hx-delete="/banks/accounts/(\d+)"', html)
+        m = re.search(r'data-url="/banks/accounts/(\d+)"', html)
         if m:
             aid = m.group(1)
             del_resp = api.delete(f"/banks/accounts/{aid}")
@@ -210,7 +210,9 @@ class TestBankAccountDelete:
             "notes": "",
         })
         page = page_goto("/banks/manage")
-        page.once("dialog", lambda d: d.accept())
-        page.locator('button[hx-delete]').first.click()
+        page.locator('.kuku-del-btn').first.click()
+        page.wait_for_selector('#kukuDeleteModal.show')
+        page.fill('#kd-input', 'DELETE')
+        page.click('#kd-btn')
         page.wait_for_load_state("networkidle")
         assert "UI Delete Account" not in page.content()

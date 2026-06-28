@@ -41,6 +41,30 @@
         </div>
     </div>
 
+    <div class="modal fade" id="kukuDeleteModal" tabindex="-1" aria-labelledby="kukuDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2 bg-danger text-white">
+                    <h6 class="modal-title mb-0" id="kukuDeleteModalLabel"><i class="bi bi-exclamation-triangle me-2"></i><span id="kd-title">Confirm Deletion</span></h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="kd-alert"></div>
+                    <p class="small mb-2" id="kd-detail"></p>
+                    <hr class="kd-confirm-section">
+                    <p class="small mb-2 kd-confirm-section">To confirm, type <code class="small">DELETE</code> below:</p>
+                    <input type="text" id="kd-input" class="form-control form-control-sm kd-confirm-section" placeholder="Type DELETE to confirm" autocomplete="off">
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm kd-confirm-section" id="kd-btn" disabled>
+                        <i class="bi bi-trash me-1"></i>Delete Permanently
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script>
@@ -57,6 +81,117 @@
                 btn.title = isOpen ? 'Hide sidebar' : 'Show sidebar';
             });
         })();
+
+        window.kukuDelete = function(config) {
+            var modalEl = document.getElementById('kukuDeleteModal');
+            var input = document.getElementById('kd-input');
+            var btn = document.getElementById('kd-btn');
+            var alertBox = document.getElementById('kd-alert');
+            var detailEl = document.getElementById('kd-detail');
+            var titleEl = document.getElementById('kd-title');
+            var confirmSections = modalEl.querySelectorAll('.kd-confirm-section');
+            var bsModal = null;
+
+            input.value = '';
+            btn.disabled = true;
+            alertBox.innerHTML = '';
+            titleEl.textContent = config.title || 'Confirm Deletion';
+            detailEl.textContent = config.detail || '';
+
+            confirmSections.forEach(function(el) { el.style.display = ''; });
+            input.disabled = false;
+            btn.style.display = '';
+            btn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete Permanently';
+
+            function runCheck() {
+                if (!config.checkUrl) return;
+                detailEl.innerHTML = '<div class="text-center text-muted py-2"><div class="spinner-border spinner-border-sm"></div> Checking…</div>';
+                btn.disabled = true;
+                input.disabled = true;
+                fetch(config.checkUrl).then(function(r){ return r.json(); }).then(function(d){
+                    input.disabled = false;
+                    if (!d.can_delete) {
+                        alertBox.innerHTML = '<div class="alert alert-danger py-2 small mb-0"><i class="bi bi-exclamation-circle me-1"></i>' + d.message + '</div>';
+                        detailEl.textContent = '';
+                        confirmSections.forEach(function(el) { el.style.display = 'none'; });
+                    } else {
+                        alertBox.innerHTML = '';
+                        detailEl.textContent = config.detail || '';
+                        confirmSections.forEach(function(el) { el.style.display = ''; });
+                    }
+                }).catch(function(){
+                    input.disabled = false;
+                    detailEl.textContent = config.detail || '';
+                });
+            }
+
+            modalEl.addEventListener('shown.bs.modal', function handler() {
+                modalEl.removeEventListener('shown.bs.modal', handler);
+                runCheck();
+            });
+
+            modalEl.addEventListener('hidden.bs.modal', function handler() {
+                modalEl.removeEventListener('hidden.bs.modal', handler);
+                confirmSections.forEach(function(el) { el.style.display = ''; });
+                input.disabled = false;
+                alertBox.innerHTML = '';
+                if (bsModal) { bsModal.dispose(); bsModal = null; }
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+                document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+            });
+
+            input.oninput = function() {
+                btn.disabled = (input.value.trim() !== 'DELETE');
+            };
+
+            btn.onclick = function() {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';
+                fetch(config.url, { method: 'DELETE' }).then(function(r){
+                    if (!r.ok) {
+                        return r.json().then(function(d) { throw new Error(d.error || 'Delete failed'); });
+                    }
+                    return r.text();
+                }).then(function(html){
+                    bsModal.hide();
+                    if (config.onSuccess) config.onSuccess(html);
+                }).catch(function(err){
+                    alertBox.innerHTML = '<div class="alert alert-danger py-2 small mb-0"><i class="bi bi-exclamation-circle me-1"></i>' + err.message + '</div>';
+                }).finally(function(){
+                    if (btn.innerHTML.indexOf('Deleting') === -1) return;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete Permanently';
+                });
+            };
+
+            bsModal = new bootstrap.Modal(modalEl);
+            bsModal.show();
+        };
+
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.kuku-del-btn');
+            if (!btn || btn.closest('[data-bs-dismiss="modal"]')) return;
+            e.preventDefault();
+            var config = {
+                url: btn.getAttribute('data-url'),
+                checkUrl: btn.getAttribute('data-check-url') || null,
+                title: btn.getAttribute('data-title') || 'Confirm Deletion',
+                detail: btn.getAttribute('data-detail') || '',
+                onSuccess: function(html) {
+                    var target = btn.getAttribute('data-target');
+                    var eventName = btn.getAttribute('data-event');
+                    if (target && html) {
+                        document.querySelector(target).outerHTML = html;
+                    }
+                    if (eventName) {
+                        document.dispatchEvent(new CustomEvent(eventName));
+                    }
+                }
+            };
+            window.kukuDelete(config);
+        });
     </script>
     {% block extra_scripts %}{% endblock %}
 </body>

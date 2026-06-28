@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 import os
@@ -87,6 +87,15 @@ async def account_toggle(request: Request, account_id: int):
 @router.delete("/accounts/{account_id}", response_class=HTMLResponse)
 async def account_delete(request: Request, account_id: int):
     db = await get_db()
+    account = await bank_svc.get_account(db, account_id)
+    if not account:
+        raise HTTPException(404)
+    txn_count = await bank_svc.count_transactions(db, account_id)
+    if txn_count > 0:
+        return JSONResponse(
+            {"error": f"This bank account has {txn_count} transaction(s). Delete all transactions before deleting the account."},
+            status_code=409,
+        )
     deleted = await bank_svc.delete_account(db, account_id)
     if not deleted:
         raise HTTPException(404)
@@ -94,6 +103,22 @@ async def account_delete(request: Request, account_id: int):
     return templates.TemplateResponse(
         request, "partials/bank_account_list.html", {"accounts": accounts}
     )
+
+
+@router.get("/accounts/{account_id}/check-delete")
+async def account_check_delete(account_id: int):
+    db = await get_db()
+    account = await bank_svc.get_account(db, account_id)
+    if not account:
+        raise HTTPException(404)
+    txn_count = await bank_svc.count_transactions(db, account_id)
+    if txn_count > 0:
+        return {
+            "can_delete": False,
+            "txn_count": txn_count,
+            "message": f"This bank account has {txn_count} transaction(s). Delete all transactions before deleting the account.",
+        }
+    return {"can_delete": True, "txn_count": 0, "message": ""}
 
 
 @router.get("/accounts/clear-form", response_class=HTMLResponse)

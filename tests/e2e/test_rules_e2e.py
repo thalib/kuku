@@ -158,9 +158,9 @@ class TestRuleDelete:
             "applies_to": "both",
             "is_active": "on",
         })
-        m = re.search(r'DELETETEST.*?hx-delete="/banks/rules/(\d+)"', resp.text, re.DOTALL)
+        m = re.search(r'DELETETEST.*?data-url="/banks/rules/(\d+)"', resp.text, re.DOTALL)
         if not m:
-            m = re.search(r'hx-delete="/banks/rules/(\d+)".*?DELETETEST', resp.text, re.DOTALL)
+            m = re.search(r'data-url="/banks/rules/(\d+)".*?DELETETEST', resp.text, re.DOTALL)
         assert m is not None, "DELETE rule not found in response"
         rid = m.group(1)
         del_resp = api.delete(f"/banks/rules/{rid}")

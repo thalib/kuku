@@ -32,11 +32,12 @@
                                             hx-swap="innerHTML">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-outline-danger"
-                                        hx-delete="/banks/categories/{{ c['id'] }}"
-                                        hx-confirm="Delete this category?"
-                                        hx-target="#hx-category-list"
-                                        hx-swap="outerHTML">
+                                <button class="btn btn-outline-danger kuku-del-btn"
+                                        data-url="/banks/categories/{{ c['id'] }}"
+                                        data-check-url="/banks/categories/{{ c['id'] }}/check-delete"
+                                        data-title="Delete Category"
+                                        data-detail="{{ c['type'] }}:{{ c['name'] }}"
+                                        data-target="#hx-category-list">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>

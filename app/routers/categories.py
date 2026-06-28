@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 import os
@@ -125,6 +125,17 @@ async def category_update(
 @router.delete("/categories/{category_id}", response_class=HTMLResponse)
 async def category_delete(request: Request, category_id: int):
     db = await get_db()
+    cat = await cat_svc.get_category(db, category_id)
+    if not cat:
+        raise HTTPException(404)
+    if cat["is_system"]:
+        raise HTTPException(403, "System categories cannot be deleted.")
+    txn_count = await cat_svc.count_transactions(db, category_id)
+    if txn_count > 0:
+        return JSONResponse(
+            {"error": f"This category is used by {txn_count} transaction(s). Update all transactions before deleting the category."},
+            status_code=409,
+        )
     deleted = await cat_svc.delete_category(db, category_id)
     if not deleted:
         raise HTTPException(404)
@@ -132,3 +143,21 @@ async def category_delete(request: Request, category_id: int):
     return templates.TemplateResponse(
         request, "partials/category_list.html", {"categories": cats}
     )
+
+
+@router.get("/categories/{category_id}/check-delete")
+async def category_check_delete(category_id: int):
+    db = await get_db()
+    cat = await cat_svc.get_category(db, category_id)
+    if not cat:
+        raise HTTPException(404)
+    if cat["is_system"]:
+        return {"can_delete": False, "txn_count": 0, "message": "System categories cannot be deleted."}
+    txn_count = await cat_svc.count_transactions(db, category_id)
+    if txn_count > 0:
+        return {
+            "can_delete": False,
+            "txn_count": txn_count,
+            "message": f"This category is used by {txn_count} transaction(s). Update all transactions before deleting the category.",
+        }
+    return {"can_delete": True, "txn_count": 0, "message": ""}

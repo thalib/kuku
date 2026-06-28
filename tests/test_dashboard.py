@@ -18,7 +18,7 @@ class TestDashboard:
 
     def test_sidebar_groups_present(self, client):
         body = client.get("/").text
-        for group in ["BANKS", "REPORTS", "ADMIN"]:
+        for group in ["BANKS", "REPORTS"]:
             assert group in body, f"Sidebar missing group: {group}"
 
     def test_dashboard_active_nav_highlighted(self, client):
@@ -41,7 +41,6 @@ class TestDashboard:
 
 PAGE_CASES = [
     ("/reports", "Reports"),
-    ("/settings", "Admin - Settings"),
 ]
 
 

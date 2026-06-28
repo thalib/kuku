@@ -82,19 +82,11 @@ class TestNavigation:
         assert "/reports" in page.url
         assert "Reports" in page.locator("h1").text_content()
 
-    def test_navigate_to_settings(self, page_goto):
-        page = page_goto("/")
-        page.locator('a[href="/settings"]').click()
-        page.wait_for_load_state("networkidle")
-        assert "/settings" in page.url
-        assert "Settings" in page.locator("h1").text_content()
-
     def test_sidebar_group_labels_present(self, page_goto):
         page = page_goto("/")
         content = page.content()
         assert "BANKS" in content
         assert "REPORTS" in content
-        assert "ADMIN" in content
 
     def test_sidebar_shows_app_name(self, page_goto):
         page = page_goto("/")

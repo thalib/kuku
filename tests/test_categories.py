@@ -173,7 +173,7 @@ class TestCategoriesDelete:
     def test_cannot_delete_system_category(self, client, _seed_system_category):
         cat = _seed_system_category
         resp = client.delete(f"/banks/categories/{cat['id']}")
-        assert resp.status_code == 404
+        assert resp.status_code == 403
 
     def test_delete_nonexistent_returns_404(self, client):
         resp = client.delete("/banks/categories/99999")

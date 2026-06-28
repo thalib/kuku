@@ -108,6 +108,15 @@ async def list_categories(db: aiosqlite.Connection) -> list[dict]:
     return [_row_to_dict(r) for r in await cursor.fetchall()]
 
 
+async def count_transactions(db: aiosqlite.Connection, category_id: int) -> int:
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM bank_transactions WHERE category_id = ?",
+        (category_id,),
+    )
+    row = await cursor.fetchone()
+    return row[0]
+
+
 async def delete_category(db: aiosqlite.Connection, category_id: int) -> bool:
     cursor = await db.execute(
         "DELETE FROM transaction_categories WHERE id = ? AND is_system = 0",

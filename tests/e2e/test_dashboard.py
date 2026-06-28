@@ -16,7 +16,7 @@ class TestDashboard:
         assert page.locator("#sidebarWrap").is_visible()
 
     def test_coming_soon_pages_show_message(self, page_goto):
-        for path, label in [("/reports", "Reports"), ("/settings", "Settings")]:
+        for path, label in [("/reports", "Reports")]:
             page = page_goto(path)
             assert "Coming soon" in page.content()
             assert label in page.content()

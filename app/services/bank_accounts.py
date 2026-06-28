@@ -59,6 +59,15 @@ async def toggle_account(db: aiosqlite.Connection, account_id: int) -> dict | No
     return await get_account(db, account_id)
 
 
+async def count_transactions(db: aiosqlite.Connection, account_id: int) -> int:
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM bank_transactions WHERE account_id = ?",
+        (account_id,),
+    )
+    row = await cursor.fetchone()
+    return row[0]
+
+
 async def delete_account(db: aiosqlite.Connection, account_id: int) -> bool:
     account = await get_account(db, account_id)
     if not account:

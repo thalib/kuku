@@ -57,14 +57,9 @@ async def dashboard(request: Request):
     )
 
 
-
-
-
 @app.get("/reports", response_class=HTMLResponse)
 async def reports(request: Request):
     return _render_page(request, "/reports", "Reports")
 
 
-@app.get("/settings", response_class=HTMLResponse)
-async def settings(request: Request):
-    return _render_page(request, "/settings", "Admin - Settings")
+

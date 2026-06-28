@@ -14,7 +14,6 @@
 | BANKS   | Categories   | /banks/categories        |
 | BANKS   | Rules        | /banks/rules             |
 | REPORTS | Reports      | /reports                 |
-| ADMIN   | Settings     | /settings                |
 
 ### Configuration
 
@@ -51,9 +50,16 @@ Additional settings will be added here as the application grows.
 - Primary action: `+ Add Bank Account` button → HTMX loads a form card in-place (id: `#hx-account-form`).
 - List: Bootstrap compact table (`table-sm table-hover align-middle`).
 - Status column: `form-switch` checkbox posts via HTMX to `/banks/accounts/{id}/toggle`; response swaps the single row (`outerHTML`).
-- Actions: Edit (HTMX form swap), Delete (`hx-delete` with `hx-confirm`).
+- Actions: Edit (HTMX form swap), Delete (security modal — type `DELETE` to confirm; blocked if account has transactions).
 - Empty state: single card "No bank accounts yet. Add one to get started."
 - Responses: HTMX requests return the `partials/bank_account_list.html` partial (swaps the `#hx-account-list` container). Add form is `partials/bank_account_form.html` (swaps `#hx-account-form`).
+
+### Delete Protection
+
+- A bank account cannot be deleted if it has associated transactions. The user must delete all transactions first.
+- Delete uses a security modal requiring the user to type `DELETE` to confirm.
+- `GET /banks/accounts/{id}/check-delete` returns `{"can_delete": bool, "txn_count": int, "message": str}`.
+- `DELETE /banks/accounts/{id}` returns HTTP 409 if the account has transactions.
 
 ### Routes
 
@@ -64,7 +70,8 @@ Additional settings will be added here as the application grows.
 | GET      | /banks/accounts/{id}/edit          | Edit form partial               |
 | POST     | /banks/accounts                    | Create (HTMX)                   |
 | PATCH    | /banks/accounts/{id}/toggle        | Toggle active (HTMX, swaps row) |
-| DELETE   | /banks/accounts/{id}               | Delete (HTMX)                   |
+| DELETE   | /banks/accounts/{id}               | Delete (HTMX, blocked if has transactions) |
+| GET      | /banks/accounts/{id}/check-delete  | Pre-delete check (JSON)         |
 
 ### Database
 
@@ -125,7 +132,7 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - Columns: Date | Narration (with `REF: reference` below in small muted text, only if reference exists) | Category (always-visible searchable `<select>`, grouped by Income / Expense / Asset / Liability / Equity) | Debit | Credit | Balance | Actions
 - Narration column: multi-line, no truncation
 - Reference: shown inline below narration as `(REF: <value>)` in `text-muted` small font. The `(REF: )` line is omitted entirely when the reference is empty.
-- Actions per row: Edit (inline form via HTMX, textarea for narration), Delete (with confirmation)
+- Actions per row: Edit (inline form via HTMX, textarea for narration), Delete (security modal — type `DELETE` to confirm)
 - Import: file upload → preview (in modal dialog) → confirm → bulk insert
 - After successful import, filters and table auto-refresh to the imported FY/month
 - Export: CSV, Excel (xlsx), PDF
@@ -215,7 +222,7 @@ Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_account
 - List: Bootstrap compact table (`table-sm table-hover align-middle`).
 - Type column: coloured badge (`bg-success-subtle` for Income, `bg-danger-subtle` for Expense, `bg-primary-subtle` for Asset, `bg-warning-subtle` for Liability, `bg-info-subtle` for Equity).
 - System categories show a lock badge; no edit/delete actions.
-- User categories show Edit (HTMX form swap) and Delete (`hx-delete` with `hx-confirm`).
+- User categories show Edit (HTMX form swap) and Delete (security modal — type `DELETE` to confirm; blocked if category has transactions).
 - Sort order: type → is_system DESC → name.
 - Empty state: "No categories found."
 
@@ -229,7 +236,15 @@ Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_account
 | GET    | /banks/categories/{id}/edit                 | Edit form partial                |
 | POST   | /banks/categories                           | Create (HTMX)                    |
 | POST   | /banks/categories/{id}/update               | Update user category (HTMX)      |
-| DELETE | /banks/categories/{id}                      | Delete user category (HTMX)      |
+| DELETE | /banks/categories/{id}                      | Delete user category (blocked if has transactions) |
+| GET    | /banks/categories/{id}/check-delete         | Pre-delete check (JSON)          |
+
+### Delete Protection
+
+- A category cannot be deleted if it is used by any transaction. The user must update all transactions with a different category first.
+- Delete uses a security modal requiring the user to type `DELETE` to confirm.
+- `GET /banks/categories/{id}/check-delete` returns `{"can_delete": bool, "txn_count": int, "message": str}`.
+- `DELETE /banks/categories/{id}` returns HTTP 409 if the category has transactions.
 
 ### Database
 
@@ -270,7 +285,7 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 - Columns: Priority | Search Text | Match Type | Category | Status | Actions
 - Priority column: plain text, sorted ascending (lowest first). Edit priority via the Edit form.
 - Status column: `form-switch` checkbox posts via HTMX to toggle active/inactive.
-- Actions: Edit (HTMX form swap), Delete (`hx-delete` with `hx-confirm`).
+- Actions: Edit (HTMX form swap), Delete (security modal — type `DELETE` to confirm).
 - Category column: shows `TYPE:CategoryName` with a coloured badge.
 - Match type badge: `bg-primary-subtle` for contains, `bg-info-subtle` for equals.
 - Empty state: "No rules yet. Add one to get started."

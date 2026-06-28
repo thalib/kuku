@@ -160,7 +160,7 @@ class TestCategoryDelete:
             "description": "",
         })
         html = page_goto("/banks/categories").content()
-        m = re.search(r'hx-delete="/banks/categories/(\d+)"', html)
+        m = re.search(r'data-url="/banks/categories/(\d+)"', html)
         if m:
             cid = m.group(1)
             resp = api.delete(f"/banks/categories/{cid}")
@@ -175,10 +175,12 @@ class TestCategoryDelete:
             "description": "",
         })
         page = page_goto("/banks/categories")
-        page.once("dialog", lambda d: d.accept())
         row = page.locator("tr", has_text="E2E UI Delete Target")
-        delete_btn = row.locator('button[hx-delete*="/categories/"]')
+        delete_btn = row.locator('.kuku-del-btn')
         delete_btn.click()
+        page.wait_for_selector('#kukuDeleteModal.show')
+        page.fill('#kd-input', 'DELETE')
+        page.click('#kd-btn')
         page.wait_for_load_state("networkidle")
         assert "E2E UI Delete Target" not in page.content()
 
@@ -186,5 +188,5 @@ class TestCategoryDelete:
         page = page_goto("/banks/categories")
         system_badge = page.locator("text=System").first
         parent_row = system_badge.locator("xpath=ancestor::tr")
-        assert parent_row.locator('button[hx-delete]').count() == 0
+        assert parent_row.locator('.kuku-del-btn').count() == 0
         assert parent_row.locator('button[hx-get*="edit"]').count() == 0

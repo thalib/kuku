@@ -34,10 +34,5 @@ NAV_GROUPS = [
             {"name": "Reports", "url": "/reports", "icon": "bi-bar-chart"},
         ],
     },
-    {
-        "label": "ADMIN",
-        "links": [
-            {"name": "Settings", "url": "/settings", "icon": "bi-gear"},
-        ],
-    },
+
 ]
