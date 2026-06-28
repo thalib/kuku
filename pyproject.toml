@@ -31,3 +31,6 @@ testpaths = ["tests"]
 markers = [
     "e2e: End-to-end browser tests (require Playwright)",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio",
+]
