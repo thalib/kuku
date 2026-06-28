@@ -12,6 +12,7 @@ from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import bank_accounts as bank_svc
 from app.services import transactions as tx_svc
+from app.services import exports as export_svc
 from app.models.transactions import TransactionUpdate, TransactionCategoryUpdate
 from app.utils.nav import mark_active_nav
 
@@ -265,24 +266,15 @@ async def bulk_delete_execute(account_id: int, fy: int, month: int):
 
 @router.get("/transactions/export/csv")
 async def export_csv(account_id: int, fy: int, month: int):
-    import io, csv as csv_mod
     db = await get_db()
     calendar_year = tx_svc.fy_to_calendar(fy, month)
     txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
     summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
+    account = await bank_svc.get_account(db, account_id)
 
-    output = io.StringIO()
-    writer = csv_mod.writer(output)
-    writer.writerow(["Date", "Value Date", "Narration", "Reference", "Debit", "Credit", "Balance"])
-    for t in txns:
-        writer.writerow([t["txn_date"], t["value_date"], t["narration"], t["reference"],
-                         t["debit"], t["credit"], t["balance"]])
-    writer.writerow([])
-    writer.writerow(["", "", "Totals", "", summary["total_debit"], summary["total_credit"], ""])
-
-    output.seek(0)
-    content = output.getvalue().encode("utf-8-sig")
-    fname = f"transactions_{account_id}_{fy}_{month:02d}.csv"
+    exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
+    content = exporter.render_csv(txns, summary)
+    fname = exporter.filename(fy, month, "csv")
     return StreamingResponse(
         iter([content]),
         media_type="text/csv",
@@ -292,61 +284,17 @@ async def export_csv(account_id: int, fy: int, month: int):
 
 @router.get("/transactions/export/xlsx")
 async def export_xlsx(account_id: int, fy: int, month: int):
-    import io
-    import openpyxl
-    from openpyxl.styles import Font, Alignment
-
     db = await get_db()
     calendar_year = tx_svc.fy_to_calendar(fy, month)
     txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
     summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Transactions"
-
-    ws.append(["Transactions"])
-    ws.cell(row=1, column=1).font = Font(bold=True, size=14)
-    acct_label = f"{account['bank_name']} - ****{account['account_number'][-4:]}" if account else f"Account #{account_id}"
-    ws.append([acct_label, f"FY {fy}-{fy + 1} - {month_abbr[month]} {calendar_year}"])
-    ws.cell(row=2, column=1).font = Font(italic=True, size=11)
-    ws.append([])
-
-    ws.append(["Date", "Value Date", "Narration", "Reference", "Debit", "Credit", "Balance"])
-    for c in ws[4]:
-        c.font = Font(bold=True)
-        c.alignment = Alignment(horizontal="center")
-
-    for t in txns:
-        ws.append([t["txn_date"], t["value_date"], t["narration"], t["reference"],
-                   t["debit"], t["credit"], t["balance"]])
-
-    last_data_row = 4 + len(txns)
-    ws.append([])
-    ws.append(["", "", "Total Debit", summary["total_debit"], "Total Credit", summary["total_credit"], ""])
-
-    for col_idx in (5, 6, 7):
-        for row_idx in range(5, last_data_row + 1):
-            ws.cell(row=row_idx, column=col_idx).number_format = "#,##0.00"
-    for col_idx in (4, 6):
-        ws.cell(row=last_data_row + 2, column=col_idx).number_format = "#,##0.00"
-        ws.cell(row=last_data_row + 2, column=col_idx).font = Font(bold=True)
-
-    ws.column_dimensions["A"].width = 12
-    ws.column_dimensions["B"].width = 12
-    ws.column_dimensions["C"].width = 50
-    ws.column_dimensions["D"].width = 20
-    ws.column_dimensions["E"].width = 14
-    ws.column_dimensions["F"].width = 14
-    ws.column_dimensions["G"].width = 14
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    fname = f"transactions_{account_id}_{fy}_{month:02d}.xlsx"
+    exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
+    content = exporter.render_xlsx(txns, summary)
+    fname = exporter.filename(fy, month, "xlsx")
     return StreamingResponse(
-        iter([buf.getvalue()]),
+        iter([content]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
@@ -354,70 +302,17 @@ async def export_xlsx(account_id: int, fy: int, month: int):
 
 @router.get("/transactions/export/pdf")
 async def export_pdf(account_id: int, fy: int, month: int):
-    import io
-    from fpdf import FPDF
-
     db = await get_db()
     calendar_year = tx_svc.fy_to_calendar(fy, month)
     txns = await tx_svc.list_transactions(db, account_id, calendar_year, month)
     summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "Bank Transactions", new_x="LMARGIN", new_y="NEXT", align="C")
-
-    pdf.set_font("Helvetica", "", 11)
-    if account:
-        acct_label = f"{account['bank_name']} - ****{account['account_number'][-4:]}"
-    else:
-        acct_label = f"Account #{account_id}"
-    month_label = f"{month_abbr[month]} {calendar_year}"
-    pdf.cell(0, 7, f"{acct_label}  |  FY {fy}-{fy + 1} - {month_label}", new_x="LMARGIN", new_y="NEXT", align="C")
-    pdf.ln(4)
-
-    pdf.set_font("Helvetica", "B", 9)
-    col_w = [22, 75, 25, 22, 22, 22]
-    hdrs = ["Date", "Narration", "Ref", "Debit", "Credit", "Balance"]
-    for i, h in enumerate(hdrs):
-        pdf.cell(col_w[i], 7, h, border=1, align="C")
-    pdf.ln()
-
-    pdf.set_font("Helvetica", "", 8)
-    for t in txns:
-        narr = t["narration"] or ""
-        if len(narr) > 50:
-            narr = narr[:47] + "..."
-        rh = 6
-        x0 = pdf.get_x()
-        y0 = pdf.get_y()
-        pdf.rect(x0, y0, col_w[0], rh)
-        pdf.cell(col_w[0], rh, str(t["txn_date"]), align="C")
-        pdf.set_xy(x0 + col_w[0], y0)
-        pdf.cell(col_w[1], rh, narr)
-        pdf.set_xy(x0 + sum(col_w[:2]), y0)
-        pdf.cell(col_w[2], rh, str(t["reference"] or ""))
-        pdf.set_xy(x0 + sum(col_w[:3]), y0)
-        pdf.cell(col_w[3], rh, f"{t['debit']:,.2f}" if t["debit"] else "", align="R")
-        pdf.set_xy(x0 + sum(col_w[:4]), y0)
-        pdf.cell(col_w[4], rh, f"{t['credit']:,.2f}" if t["credit"] else "", align="R")
-        pdf.set_xy(x0 + sum(col_w[:5]), y0)
-        pdf.cell(col_w[5], rh, f"{t['balance']:,.2f}", align="R")
-        pdf.ln()
-
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 7, f"Total Debit: {summary['total_debit']:,.2f}   |   Total Credit: {summary['total_credit']:,.2f}   |   Transactions: {summary['txn_count']}", new_x="LMARGIN", new_y="NEXT", align="C")
-
-    buf = io.BytesIO()
-    buf.write(pdf.output())
-    buf.seek(0)
-    fname = f"transactions_{account_id}_{fy}_{month:02d}.pdf"
+    exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
+    content = exporter.render_pdf(txns, summary)
+    fname = exporter.filename(fy, month, "pdf")
     return StreamingResponse(
-        iter([buf.getvalue()]),
+        iter([content]),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )

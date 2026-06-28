@@ -1,7 +1,16 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_env_path)
+
 APP_NAME = "Kuku"
 APP_HOST = "127.0.0.1"
 APP_PORT = 8000
 DB_PATH = "kuku.db"
+COMPANY_NAME = os.getenv("COMPANY_NAME", "Kuku")
 
 NAV_GROUPS = [
     {

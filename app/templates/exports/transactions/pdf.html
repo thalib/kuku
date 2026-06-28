@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    @page {
+        size: A4 portrait;
+        margin: 1cm 0.5cm 1cm 1cm;
+        @frame footer {
+            -pdf-frame-content: footerContent;
+            bottom: 0.1cm;
+            margin-left: 1cm;
+            margin-right: 0.5cm;
+            height: 0.5cm;
+        }
+    }
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 10pt;
+        color: #333;
+    }
+    .header {
+        text-align: center;
+        margin-bottom: 6px;
+    }
+    .header .company-name {
+        font-size: 12pt;
+        font-weight: bold;
+        margin-bottom: 1px;
+    }
+    .header .bank-name {
+        font-size: 10pt;
+        color: #555;
+        margin-bottom: 1px;
+    }
+    .header .period {
+        font-size: 9pt;
+        color: #777;
+    }
+    table.transactions {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        margin-top: 4px;
+    }
+    table.transactions th {
+        background-color: #343a40;
+        color: #ffffff;
+        font-size: 8pt;
+        font-weight: bold;
+        padding: 3px 2px;
+        border: 0.5pt solid #343a40;
+        text-align: center;
+        word-wrap: break-word;
+    }
+    table.transactions td {
+        font-size: 8pt;
+        padding: 2px;
+        border: 0.5pt solid #ccc;
+        vertical-align: top;
+        word-wrap: break-word;
+    }
+    table.transactions tr.even td {
+        background-color: #f8f9fa;
+    }
+    .col-date { width: 16mm; text-align: center; }
+    .col-narration { width: 80mm; }
+    .col-category { width: 32mm; }
+    .col-amount { width: 20mm; text-align: right; }
+    .col-balance { width: 20mm; text-align: right; }
+    .debit { color: #cc0000; }
+    .credit { color: #007700; }
+    .narration-ref {
+        display: block;
+        font-size: 7pt;
+        color: #888888;
+        margin-top: 0;
+    }
+    .summary-section {
+        margin-top: 6px;
+        border-top: 1pt solid #343a40;
+        padding-top: 3px;
+    }
+    .summary-section table {
+        width: 100%;
+    }
+    .summary-section td {
+        font-size: 8pt;
+        padding: 1px 2px;
+    }
+    .summary-label {
+        font-weight: bold;
+        text-align: right;
+        width: 30%;
+    }
+    .summary-value {
+        text-align: right;
+        width: 20%;
+    }
+    .summary-total-label {
+        font-weight: bold;
+        border-top: 0.5pt solid #333;
+    }
+    .summary-total-value {
+        font-weight: bold;
+        border-top: 0.5pt solid #333;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="company-name">{{ company_name }}</div>
+    <div class="bank-name">{{ bank_name }}</div>
+    <div class="period">{{ month_label }}</div>
+</div>
+
+<table class="transactions">
+    <thead>
+        <tr>
+            <th class="col-date">Date</th>
+            <th class="col-narration">Narration</th>
+            <th class="col-category">Category</th>
+            <th class="col-amount">Debit</th>
+            <th class="col-amount">Credit</th>
+            <th class="col-balance">Balance</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in transactions %}
+        <tr{% if loop.index0 is odd %} class="even"{% endif %}>
+            <td class="col-date">{{ t["txn_date"] }}</td>
+            <td class="col-narration">{{ t["narration"] or "" }}{% if t.get("reference") %}<span class="narration-ref">({{ t["reference"] }})</span>{% endif %}</td>
+            <td class="col-category">{{ format_category(t) }}</td>
+            <td class="col-amount{% if t['debit'] %} debit{% endif %}">{{ "{:,.2f}".format(t["debit"]) if t["debit"] else "" }}</td>
+            <td class="col-amount{% if t['credit'] %} credit{% endif %}">{{ "{:,.2f}".format(t["credit"]) if t["credit"] else "" }}</td>
+            <td class="col-balance">{{ "{:,.2f}".format(t["balance"]) }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="summary-section">
+    <table>
+        <tr>
+            <td class="summary-label summary-total-label">Total Debit:</td>
+            <td class="summary-value summary-total-value">{{ "{:,.2f}".format(summary["total_debit"]) }}</td>
+            <td class="summary-label summary-total-label">Total Credit:</td>
+            <td class="summary-value summary-total-value">{{ "{:,.2f}".format(summary["total_credit"]) }}</td>
+        </tr>
+        <tr>
+            <td class="summary-label">Net:</td>
+            <td class="summary-value">{{ "{:,.2f}".format(summary["total_credit"] - summary["total_debit"]) }}</td>
+            <td class="summary-label">Transactions:</td>
+            <td class="summary-value">{{ summary["txn_count"] }}</td>
+        </tr>
+    </table>
+</div>
+
+<div id="footerContent" style="text-align: center; font-size: 7pt; color: #777;">
+    Page <pdf:pagenumber/> of <pdf:pagecount/>
+</div>
+
+</body>
+</html>

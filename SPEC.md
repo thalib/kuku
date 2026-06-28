@@ -16,6 +16,16 @@
 | REPORTS | Reports      | /reports                 |
 | ADMIN   | Settings     | /settings                |
 
+### Configuration
+
+Settings are loaded from a `.env` file in the project root (see `.env.example` for reference). `app/config.py` uses `python-dotenv` to load environment variables at startup.
+
+| Variable       | Required | Default | Notes                                  |
+|----------------|----------|---------|----------------------------------------|
+| COMPANY_NAME   | no       | "Kuku"  | Displayed in export headers and reports |
+
+Additional settings will be added here as the application grows.
+
 ## Bank Accounts (Manage)
 
 **URL**: `/banks/manage`
@@ -27,7 +37,7 @@
 |----------------|----------|-----------------------------------------|
 | bank_name      | yes      | Text, e.g. "HDFC Bank"                 |
 | account_name   | yes      | Name on the account (payee)             |
-| account_number | yes      | Masked in list: last 4 digits visible   |
+| account_number | yes      | Full account number displayed           |
 | ifsc_code      | yes      | IFSC code                               |
 | branch_name    | no       | Optional branch                         |
 | notes          | no       | Free text                               |
@@ -119,6 +129,10 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - Import: file upload → preview (in modal dialog) → confirm → bulk insert
 - After successful import, filters and table auto-refresh to the imported FY/month
 - Export: CSV, Excel (xlsx), PDF
+  - All exports include: header (company name, bank name, period), transaction table, and summary footer
+  - Header format: `{company_name}` → `{bank_name}, {account_last4}` → `{month} {year}`
+  - Footer: totals row with debit/credit sums
+  - PDF only: "Page X of Y" footer on each page
 - Import workflow and transaction view workflow are isolated in a Bootstrap modal — the preview does not collide with the table area.
 
 ### Bulk Delete
@@ -279,3 +293,48 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 ### Database
 
 Table name: `classification_rules`. Created by `init_db()`.
+
+## Export Service
+
+**Package**: `app/services/exports/`
+**Purpose**: Modular, domain-based export system. Each business domain (transactions, reports, invoices, etc.) has its own exporter class with CSV, XLSX, and PDF renderers.
+
+### Architecture
+
+```
+app/services/exports/
+├── __init__.py          # Public API: BaseExporter, TransactionExporter
+├── base.py              # BaseExporter ABC, shared helpers (company name, account label)
+└── transactions.py      # TransactionExporter (CSV, XLSX, PDF)
+
+app/templates/exports/
+├── transactions/
+│   └── pdf.html         # Jinja2 HTML template rendered by xhtml2pdf
+└── (future domains: reports/, invoices/, etc.)
+```
+
+### BaseExporter
+
+Abstract base class. Subclasses set `domain` (used for template lookup and filenames) and implement `render_csv()`, `render_xlsx()`, `render_pdf()`.
+
+Shared helpers in `base.py`:
+- `get_company_name()` — reads `COMPANY_NAME` from config (loaded from `.env`)
+- `build_account_label(account, account_id)` — `"Bank Name - ****1234"`
+- `build_month_label(calendar_year, month)` — `"Apr 2025"`
+
+### TransactionExporter
+
+Subclass of `BaseExporter`. Accepts `account`, `account_id`, `fy`, `calendar_year`, `month` at construction. Data (`transactions`, `summary`) passed to render methods.
+
+- **CSV**: Header (company name, account label, month), column headers, data rows, blank line, totals row. UTF-8 with BOM.
+- **XLSX**: Merged header cells (company name centered, bank name, month label), column headers (bold), data rows with number formatting (`#,##0.00`), totals row (bold).
+- **PDF**: Jinja2 HTML template (`templates/exports/transactions/pdf.html`) rendered to PDF via xhtml2pdf. Includes header, styled transaction table with alternating rows, summary section, and page footer ("Page X of Y").
+
+### Adding a New Domain
+
+1. Create `app/services/exports/<domain>.py` with a class extending `BaseExporter`.
+2. Set `domain = "<domain>"` on the class.
+3. Implement `render_csv()`, `render_xlsx()`, `render_pdf()`.
+4. Add templates under `app/templates/exports/<domain>/`.
+5. Export the class from `app/services/exports/__init__.py`.
+6. Wire up route handlers that instantiate the exporter and call render methods.
