@@ -1,9 +1,10 @@
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from app import config, database
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def _fresh_db():
     config.DB_PATH = ":memory:"
     database._db = None
@@ -18,7 +19,7 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_category():
     from app.services.categories import create_category
     from app.database import get_db
@@ -34,7 +35,7 @@ async def _seed_category():
     )
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_rule(_seed_category):
     from app.services.rules import create_rule
     from app.database import get_db
@@ -211,32 +212,24 @@ class TestRulesList:
         resp = client.get("/banks/rules/clear-form")
         assert resp.status_code == 200
 
-    def test_rules_sorted_by_priority(self, client, _seed_category):
+    async def test_rules_sorted_by_priority(self, client, _seed_category):
         from app.services.rules import create_rule
         from app.database import get_db
         from app.models.rules import RuleCreate
-        import asyncio
 
-        async def _seed():
-            db = await get_db()
-            await create_rule(db, RuleCreate(search_text="AAA", match_type="contains", category_id=_seed_category["id"], priority=5))
-            await create_rule(db, RuleCreate(search_text="BBB", match_type="contains", category_id=_seed_category["id"], priority=1))
-
-        asyncio.get_event_loop().run_until_complete(_seed())
+        db = await get_db()
+        await create_rule(db, RuleCreate(search_text="AAA", match_type="contains", category_id=_seed_category["id"], priority=5))
+        await create_rule(db, RuleCreate(search_text="BBB", match_type="contains", category_id=_seed_category["id"], priority=1))
         body = client.get("/banks/rules").text
         bbb_pos = body.find("BBB")
         aaa_pos = body.find("AAA")
         assert bbb_pos < aaa_pos
 
-    def test_inactive_rule_still_shown(self, client, _seed_rule):
+    async def test_inactive_rule_still_shown(self, client, _seed_rule):
         from app.services.rules import toggle_rule
         from app.database import get_db
-        import asyncio
 
-        async def _seed():
-            db = await get_db()
-            await toggle_rule(db, _seed_rule["id"])
-
-        asyncio.get_event_loop().run_until_complete(_seed())
+        db = await get_db()
+        await toggle_rule(db, _seed_rule["id"])
         body = client.get("/banks/rules").text
         assert _seed_rule["search_text"] in body

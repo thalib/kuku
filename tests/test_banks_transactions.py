@@ -1,10 +1,11 @@
 import pytest
+import pytest_asyncio
 import json
 from fastapi.testclient import TestClient
 from app import config, database
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def _fresh_db():
     config.DB_PATH = ":memory:"
     database._db = None
@@ -19,7 +20,7 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_account():
     from app.services.bank_accounts import create_account
     from app.database import get_db
@@ -32,7 +33,7 @@ async def _seed_account():
     ))
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_transactions(_seed_account):
     from app.services.transactions import bulk_create_transactions
     from app.database import get_db
@@ -46,7 +47,7 @@ async def _seed_transactions(_seed_account):
     return {"account": _seed_account, "txns": txns}
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _get_txn_ids(_seed_transactions):
     from app.services.transactions import list_transactions
     from app.database import get_db
@@ -288,32 +289,28 @@ class TestTransactionCategories:
         body = client.get(f"/banks/transactions/table?account_id={aid}&fy=2024&month=4").text
         assert "kuku-search-select" in body
 
-    def test_category_patch_updates_and_returns_200(self, client, _seed_transactions):
+    async def test_category_patch_updates_and_returns_200(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
         from app.services.transactions import list_transactions, list_categories_for_transactions
         from app.database import get_db
 
-        async def _get_data():
-            db = await get_db()
-            txns = await list_transactions(db, aid, 2024, 4)
-            cats = await list_categories_for_transactions(db)
-            uncategorized_expense_id = None
-            for c in cats:
-                if c["name"] == "Uncategorized Expense":
-                    uncategorized_expense_id = c["id"]
-                    break
-            return txns[0]["id"], uncategorized_expense_id
-
-        import asyncio
-        txn_id, cat_id = asyncio.get_event_loop().run_until_complete(_get_data())
-        resp = client.patch(f"/banks/transactions/{txn_id}/category", data={"category_id": cat_id})
+        db = await get_db()
+        txns = await list_transactions(db, aid, 2024, 4)
+        cats = await list_categories_for_transactions(db)
+        uncategorized_expense_id = None
+        for c in cats:
+            if c["name"] == "Uncategorized Expense":
+                uncategorized_expense_id = c["id"]
+                break
+        txn_id = txns[0]["id"]
+        resp = client.patch(f"/banks/transactions/{txn_id}/category", data={"category_id": uncategorized_expense_id})
         assert resp.status_code == 200
 
     def test_category_patch_404_for_nonexistent(self, client):
         resp = client.patch("/banks/transactions/99999/category", data={"category_id": 1})
         assert resp.status_code == 404
 
-    def test_import_auto_classifies_expense(self, client, _seed_account):
+    async def test_import_auto_classifies_expense(self, client, _seed_account):
         from app.services.transactions import parse_csv_rows, list_transactions
         from app.database import get_db
         from app.services.categories import list_categories
@@ -325,20 +322,15 @@ class TestTransactionCategories:
         )
         assert resp.status_code == 200
 
-        async def _check():
-            db = await get_db()
-            txns = await list_transactions(db, _seed_account["id"], 2024, 4)
-            cats = await list_categories(db)
-            uncategorized = next(c for c in cats if c["name"] == "Uncategorized Expense")
-            uncategorized_income = next(c for c in cats if c["name"] == "Uncategorized Income")
-            expense_txn = next(t for t in txns if t["debit"] > 0)
-            income_txn = next(t for t in txns if t["credit"] > 0)
-            return expense_txn["category_id"], income_txn["category_id"], uncategorized["id"], uncategorized_income["id"]
-
-        import asyncio
-        exp_cat, inc_cat, unc_exp_id, unc_inc_id = asyncio.get_event_loop().run_until_complete(_check())
-        assert exp_cat == unc_exp_id
-        assert inc_cat == unc_inc_id
+        db = await get_db()
+        txns = await list_transactions(db, _seed_account["id"], 2024, 4)
+        cats = await list_categories(db)
+        uncategorized = next(c for c in cats if c["name"] == "Uncategorized Expense")
+        uncategorized_income = next(c for c in cats if c["name"] == "Uncategorized Income")
+        expense_txn = next(t for t in txns if t["debit"] > 0)
+        income_txn = next(t for t in txns if t["credit"] > 0)
+        assert expense_txn["category_id"] == uncategorized["id"]
+        assert income_txn["category_id"] == uncategorized_income["id"]
 
     def test_transaction_row_shows_ref_below_narration(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
@@ -346,18 +338,14 @@ class TestTransactionCategories:
         assert "(REF: REF001)" in body
         assert "NEFT Credit" in body
 
-    def test_empty_ref_shows_no_ref_line(self, client, _seed_account):
+    async def test_empty_ref_shows_no_ref_line(self, client, _seed_account):
         from app.services.transactions import bulk_create_transactions
         from app.database import get_db
 
-        async def _seed():
-            db = await get_db()
-            await bulk_create_transactions(db, _seed_account["id"], [
-                {"txn_date": "2024-04-01", "value_date": "2024-04-01", "narration": "NoRefTxn", "reference": "", "debit": 0, "credit": 500, "balance": 500},
-            ])
-
-        import asyncio
-        asyncio.get_event_loop().run_until_complete(_seed())
+        db = await get_db()
+        await bulk_create_transactions(db, _seed_account["id"], [
+            {"txn_date": "2024-04-01", "value_date": "2024-04-01", "narration": "NoRefTxn", "reference": "", "debit": 0, "credit": 500, "balance": 500},
+        ])
         body = client.get(f"/banks/transactions/table?account_id={_seed_account['id']}&fy=2024&month=4").text
         assert "NoRefTxn" in body
         assert "(REF:" not in body
@@ -397,10 +385,9 @@ class TestBulkDelete:
         assert data["total_credit"] == 18940.0
         assert "Apr" in data["month_label"]
 
-    def test_bulk_delete_removes_transactions(self, client, _seed_transactions):
+    async def test_bulk_delete_removes_transactions(self, client, _seed_transactions):
         from app.services.transactions import list_transactions
         from app.database import get_db
-        import asyncio
 
         aid = _seed_transactions["account"]["id"]
         resp = client.delete(f"/banks/transactions/bulk/delete?account_id={aid}&fy=2024&month=4")
@@ -408,12 +395,8 @@ class TestBulkDelete:
         data = resp.json()
         assert data["deleted"] == 3
 
-        async def _check():
-            db = await get_db()
-            txns = await list_transactions(db, aid, 2024, 4)
-            return txns
-
-        txns = asyncio.get_event_loop().run_until_complete(_check())
+        db = await get_db()
+        txns = await list_transactions(db, aid, 2024, 4)
         assert len(txns) == 0
 
     def test_bulk_delete_empty_month_returns_zero(self, client, _seed_transactions):
@@ -432,38 +415,34 @@ class TestRunRules:
         data = resp.json()
         assert "updated" in data
 
-    def test_run_rules_updates_categories(self, client, _seed_transactions):
+    async def test_run_rules_updates_categories(self, client, _seed_transactions):
         aid = _seed_transactions["account"]["id"]
         from app.services.categories import create_category
         from app.services.rules import create_rule
         from app.database import get_db
         from app.models.categories import CategoryCreate
         from app.models.rules import RuleCreate
-        import asyncio
 
-        async def _setup():
-            db = await get_db()
-            cat = await create_category(
-                db,
-                CategoryCreate(
-                    name="Rule Test Cat",
-                    type="Expense",
-                    description="For run rules test",
-                ),
-            )
-            return await create_rule(
-                db,
-                RuleCreate(
-                    search_text="NEFT",
-                    match_type="contains",
-                    category_id=cat["id"],
-                    priority=1,
-                    applies_to="both",
-                    is_active=True,
-                ),
-            )
-
-        asyncio.get_event_loop().run_until_complete(_setup())
+        db = await get_db()
+        cat = await create_category(
+            db,
+            CategoryCreate(
+                name="Rule Test Cat",
+                type="Expense",
+                description="For run rules test",
+            ),
+        )
+        await create_rule(
+            db,
+            RuleCreate(
+                search_text="NEFT",
+                match_type="contains",
+                category_id=cat["id"],
+                priority=1,
+                applies_to="both",
+                is_active=True,
+            ),
+        )
         resp = client.post("/banks/transactions/rules/run", data={"account_id": aid, "fy": 2024, "month": 4})
         assert resp.status_code == 200
         data = resp.json()

@@ -1,9 +1,10 @@
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from app import config, database
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def _fresh_db():
     config.DB_PATH = ":memory:"
     database._db = None
@@ -18,7 +19,7 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_user_category():
     from app.services.categories import create_category
     from app.database import get_db
@@ -34,7 +35,7 @@ async def _seed_user_category():
     )
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_system_category():
     from app.services.categories import list_categories
     from app.database import get_db
@@ -44,7 +45,7 @@ async def _seed_system_category():
     return system_cats[0] if system_cats else None
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_account():
     from app.services.bank_accounts import create_account
     from app.database import get_db
@@ -73,16 +74,12 @@ class TestCategoriesSeeding:
         assert "LIABILITY:Accounts Payable" in body
         assert "EQUITY:Owner Capital" in body
 
-    def test_system_categories_seeded_once(self, client):
+    async def test_system_categories_seeded_once(self, client):
         from app.services.categories import list_categories
-        import asyncio
 
-        async def _count():
-            db = await database.get_db()
-            cats = await list_categories(db)
-            return len([c for c in cats if c["is_system"]])
-
-        count = asyncio.get_event_loop().run_until_complete(_count())
+        db = await database.get_db()
+        cats = await list_categories(db)
+        count = len([c for c in cats if c["is_system"]])
         assert count > 0
 
     def test_all_five_types_present(self, client):

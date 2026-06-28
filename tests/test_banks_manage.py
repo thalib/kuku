@@ -1,9 +1,10 @@
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from app import config, database
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def _fresh_db():
     config.DB_PATH = ":memory:"
     database._db = None
@@ -18,7 +19,7 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def _seed_account():
     from app.services.bank_accounts import create_account
     from app.database import get_db
