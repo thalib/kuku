@@ -140,6 +140,7 @@ These rules prevent the AI from making assumptions, inventing features, or devia
 
 ### What NOT to Do
 
+- **NEVER commit** unless the user explicitly asks you to commit.
 - **Do not invent features** not described in `SPEC.md` or user instructions.
 - **Do not assume** dependencies exist. Check `pyproject.toml` first.
 - **Do not assume** a file exists. Check with `Read` or `Glob` first.
