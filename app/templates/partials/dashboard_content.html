@@ -1,0 +1,235 @@
+<div id="dashboard-root">
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <form id="dash-filter-form" class="d-flex flex-wrap align-items-center gap-2"
+              hx-get="/content" hx-target="#dashboard-root" hx-swap="outerHTML">
+            <select name="fy" class="form-select form-select-sm" style="width:auto" data-testid="dashboard-fy-select">
+                <option value="">Financial Year</option>
+                {% for y in fy_years %}
+                <option value="{{ y }}" {% if selected_fy == y %}selected{% endif %}>FY {{ y }}-{{ y + 1 }}</option>
+                {% endfor %}
+            </select>
+            <select name="month" class="form-select form-select-sm" style="width:auto" data-testid="dashboard-month-select">
+                <option value="">All Months</option>
+                {% for m_num, m_label in months %}
+                <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary" data-testid="dashboard-update">
+                <i class="bi bi-arrow-clockwise me-1"></i>Update
+            </button>
+        </form>
+    </div>
+
+    {% if not has_data %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+            <p class="text-muted mb-0">No transaction data available. Import bank transactions to see the dashboard.</p>
+        </div>
+    </div>
+    {% else %}
+
+    {% set accounts = data.get("accounts", []) %}
+    {% set monthly = data.get("monthly_data", []) %}
+    {% set top_income = data.get("top_income", []) %}
+    {% set top_expense = data.get("top_expense", []) %}
+    {% set total_income = data.get("total_income", 0) %}
+    {% set total_expense = data.get("total_expense", 0) %}
+    {% set net = data.get("net", 0) %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Income</div>
+                    <div class="h5 mb-0 text-success" data-testid="dashboard-total-income">{{ "{:,.2f}".format(total_income) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Expense</div>
+                    <div class="h5 mb-0 text-danger" data-testid="dashboard-total-expense">{{ "{:,.2f}".format(total_expense) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Net</div>
+                    <div class="h5 mb-0 {% if net >= 0 %}text-success{% else %}text-danger{% endif %}" data-testid="dashboard-net">{{ "{:,.2f}".format(net) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if accounts %}
+    <section class="card border-0 shadow-sm mb-3">
+        <div class="card-header py-2">
+            <h6 class="mb-0"><i class="bi bi-bank me-2"></i>Bank Accounts</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" data-testid="dashboard-accounts-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Bank Name</th>
+                        <th>Account Name</th>
+                        <th>Account No.</th>
+                        <th class="text-end">Last Balance</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acc in accounts %}
+                    <tr>
+                        <td>{{ acc["bank_name"] }}</td>
+                        <td>{{ acc["account_name"] }}</td>
+                        <td><span class="text-muted">{{ acc["account_number"][-4:] }}</span></td>
+                        <td class="text-end fw-semibold">{{ "{:,.2f}".format(acc["last_balance"]) }}</td>
+                        <td class="text-center">
+                            {% if acc["is_active"] %}
+                            <span class="badge bg-success-subtle text-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Income & Expense</h6>
+                </div>
+                <div class="card-body">
+                    {% if monthly %}
+                    <canvas id="chart-income-expense" height="280"></canvas>
+                    {% else %}
+                    <div class="text-center text-muted py-4">No data for the selected period.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Top Income Sources</h6>
+                </div>
+                <div class="card-body">
+                    {% if top_income %}
+                    <canvas id="chart-top-income" height="260"></canvas>
+                    {% else %}
+                    <div class="text-center text-muted py-4">No income data.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Top Expense Categories</h6>
+                </div>
+                <div class="card-body">
+                    {% if top_expense %}
+                    <canvas id="chart-top-expense" height="260"></canvas>
+                    {% else %}
+                    <div class="text-center text-muted py-4">No expense data.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/chart.umd.min.js"></script>
+    <script>
+    (function(){
+        var monthlyData = {{ monthly | tojson }};
+        var topIncome = {{ top_income | tojson }};
+        var topExpense = {{ top_expense | tojson }};
+
+        var palette = ['#0d6efd','#198754','#ffc107','#dc3545','#0dcaf0','#6f42c1','#fd7e14','#20c997','#d63384','#6c757d'];
+
+        function destroyIfExists(id) {
+            var existing = Chart.getChart(id);
+            if (existing) existing.destroy();
+        }
+
+        if (monthlyData && monthlyData.length) {
+            destroyIfExists('chart-income-expense');
+            var ctxBar = document.getElementById('chart-income-expense');
+            if (ctxBar) {
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: monthlyData.map(function(d){ return d.label; }),
+                        datasets: [
+                            {
+                                label: 'Income',
+                                data: monthlyData.map(function(d){ return d.income; }),
+                                backgroundColor: '#198754',
+                                borderRadius: 4,
+                            },
+                            {
+                                label: 'Expense',
+                                data: monthlyData.map(function(d){ return d.expense; }),
+                                backgroundColor: '#dc3545',
+                                borderRadius: 4,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { callback: function(v){ return v.toLocaleString(); } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function makePieConfig(canvasId, items, colors) {
+            destroyIfExists(canvasId);
+            var ctx = document.getElementById(canvasId);
+            if (!ctx || !items.length) return;
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: items.map(function(d){ return d.category; }),
+                    datasets: [{
+                        data: items.map(function(d){ return d.total; }),
+                        backgroundColor: items.map(function(_, i){ return colors[i % colors.length]; }),
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } },
+                        tooltip: { callbacks: { label: function(c){ return c.label + ': ' + c.parsed.toLocaleString(); } } }
+                    }
+                }
+            });
+        }
+
+        makePieConfig('chart-top-income', topIncome, ['#198754','#20c997','#0dcaf0','#0d6efd','#6f42c1']);
+        makePieConfig('chart-top-expense', topExpense, ['#dc3545','#fd7e14','#ffc107','#d63384','#6c757d']);
+    })();
+    </script>
+
+    {% endif %}
+
+</div>

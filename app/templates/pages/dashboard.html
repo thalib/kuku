@@ -1,84 +1,10 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<div class="container-fluid p-3 p-xl-4">
-    <div class="d-flex justify-content-end mb-3">
-        <button class="btn btn-sm btn-primary" data-testid="dashboard-update">
-            <i class="bi bi-arrow-clockwise me-2"></i> Update
-        </button>
+<div class="container-fluid p-3 p-xl-4"
+     hx-get="/content" hx-trigger="load" hx-swap="innerHTML">
+    <div class="text-center text-muted py-5">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading dashboard...
     </div>
-
-    <div class="card border-0 shadow-sm mb-3 text-center">
-        <div class="card-body py-3">
-            <div class="d-flex flex-wrap justify-content-center gap-3">
-                <div class="d-flex flex-column gap-1 border border-primary rounded p-3" data-testid="dashboard-server-health">
-                    <span class="text-muted text-uppercase fw-semibold">Server Health</span>
-                    <span class="text-success">Online</span>
-                </div>
-                <div class="d-flex flex-column gap-1 border border-primary rounded p-3">
-                    <span class="text-muted text-uppercase fw-semibold">Last Check</span>
-                    <span>25/06/2026</span>
-                </div>
-                <div class="d-flex flex-column gap-1 border border-primary rounded p-3" data-testid="dashboard-server-url">
-                    <span class="text-muted text-uppercase fw-semibold">Server URL</span>
-                    <span class="text-break">http://127.0.0.1:8000/api</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <section class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-1 m-1">
-            <div class="py-3 border-bottom">
-                <h2 class="h6">Recent Estimates</h2>
-            </div>
-            <div class="table-responsive" data-testid="dashboard-table-estimates">
-                <table class="table table-sm table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Customer</th>
-                            <th scope="col" class="text-end">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><a href="#" class="text-decoration-none">EST260701/DC</a></td><td>25/06/2026</td><td>—</td><td class="text-end">88500</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">EST260702/DC</a></td><td>25/06/2026</td><td>—</td><td class="text-end">122400</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">EST260703/DC</a></td><td>25/06/2026</td><td>—</td><td class="text-end">100530</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">EST260693/DE</a></td><td>24/06/2026</td><td>D.MADAN GOPAL</td><td class="text-end">145200</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">EST260694/DC</a></td><td>24/06/2026</td><td>—</td><td class="text-end">164237.5</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <section class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-1 m-1">
-            <div class="py-3 border-bottom">
-                <h2 class="h6">Recent Invoices</h2>
-            </div>
-            <div class="table-responsive" data-testid="dashboard-table-invoices">
-                <table class="table table-sm table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Customer</th>
-                            <th scope="col" class="text-end">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><a href="#" class="text-decoration-none">INM260466</a></td><td>22/06/2026</td><td>C Prabakaran</td><td class="text-end">3915</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">IN26Z1014</a></td><td>06/06/2026</td><td>SRI BALAJI CONSTRUCTIONS</td><td class="text-end">194400</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">IN26Z1010</a></td><td>22/05/2026</td><td>SRI BALAJI CONSTRUCTIONS</td><td class="text-end">1425600</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">IN26Z1009</a></td><td>21/05/2026</td><td>R SEKAR</td><td class="text-end">46563</td></tr>
-                        <tr><td><a href="#" class="text-decoration-none">IN26Z0990</a></td><td>05/05/2026</td><td>S RAVI</td><td class="text-end">90216</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
 </div>
 {% endblock %}

@@ -44,6 +44,7 @@ async def init_db():
             FOREIGN KEY (account_id) REFERENCES bank_accounts(id)
         )
     """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_bank_txn_date ON bank_transactions(txn_date)")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS transaction_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

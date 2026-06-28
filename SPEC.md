@@ -25,6 +25,65 @@ Settings are loaded from a `.env` file in the project root (see `.env.example` f
 
 Additional settings will be added here as the application grows.
 
+## Dashboard
+
+**URL**: `/`
+**Purpose**: Financial overview of the organisation. Shows bank account balances, income vs. expense trends, and top income/expense category breakdowns. Data is driven entirely from bank transaction records.
+
+### Period Selector
+
+- Financial Year dropdown: lists FY years with transaction data (e.g. "FY 2025-2026").
+- Month dropdown: optional filter within the selected FY. Defaults to "All Months" when no month is selected.
+- Update button: submits the selected period via HTMX; replaces the dashboard content area without full page reload.
+- When no transaction data exists, a placeholder message is shown instead of charts/tables.
+
+### Summary Cards
+
+Three cards displayed in a row: Total Income, Total Expense, Net (income - expense).
+- Total Income: green text.
+- Total Expense: red text.
+- Net: green if positive, red if negative.
+
+### Bank Accounts Table
+
+- Columns: Bank Name | Account Name | Account No. (last 4 digits) | Last Balance | Status
+- Last Balance: taken from the most recent transaction for each account; 0 if no transactions.
+- Status: green "Active" badge or grey "Inactive" badge.
+- Follows Bootstrap compact table style (`table-sm table-hover align-middle`).
+
+### Charts
+
+Charts rendered with Chart.js 4 (CDN). Three charts below the summary/table:
+
+1. **Income & Expense (Bar Chart)**: grouped bar chart showing monthly income (green) and expense (red) for the selected period. X-axis shows months in FY order (Apr→Mar).
+2. **Top Income Sources (Pie Chart)**: top 5 income categories by total credit amount.
+3. **Top Expense Categories (Pie Chart)**: top 5 expense categories by total debit amount.
+
+### Financial Year
+
+- Follows Indian accounting standard same as Transactions: FY runs April to March.
+- FY parameter uses the start year (e.g. `fy=2025` for FY 2025-26).
+- Month uses calendar month number (4=Apr, 3=Mar).
+
+### Modular Architecture
+
+- **Service**: `app/services/dashboard.py` — pure data aggregation functions designed for reuse in future reports (Profit & Loss, Cash Flow, Balance Sheet).
+  - `get_available_fy_years(db)` — lists all FY years with transactions.
+  - `get_available_months(db, fy_start)` — lists months with data for a given FY.
+  - `get_accounts_with_balance(db)` — all accounts with their latest closing balance.
+  - `get_income_expense_by_month(db, fy_start, month=None)` — monthly income/expense data.
+  - `get_top_categories(db, fy_start, category_type, month=None, limit=5)` — top categories by amount.
+  - `get_dashboard_data(db, fy_start, month=None)` — composite function returning all dashboard data.
+- **Router**: `app/routers/dashboard.py` — `GET /` for the full page, `GET /content` for the HTMX partial.
+- **Templates**: `pages/dashboard.html` (extends base, HTMX loads content) + `partials/dashboard_content.html` (charts, tables, filter form).
+
+### Routes
+
+| Method | URL                              | Purpose                         |
+|--------|----------------------------------|---------------------------------|
+| GET    | /                                | Full dashboard page             |
+| GET    | /content?fy=&month=              | Dashboard content partial (HTMX)|
+
 ## Bank Accounts (Manage)
 
 **URL**: `/banks/manage`
