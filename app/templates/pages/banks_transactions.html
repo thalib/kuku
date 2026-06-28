@@ -323,10 +323,22 @@
         };
     }
 
+    function clearTableArea() {
+        var ta = document.getElementById('hx-table-area');
+        if (ta) ta.innerHTML = '';
+        document.getElementById('btnExport').style.display = 'none';
+        document.getElementById('btnBulkDelete').style.display = 'none';
+        document.getElementById('btnBulkDelete').disabled = true;
+        document.getElementById('btnRunRules').style.display = 'none';
+        document.getElementById('btnRunRules').disabled = true;
+        dirtyCells = {};
+        updateSaveBar();
+    }
+
     function loadTable(){
         var f = getFilters();
         if (!f.account_id || !f.fy || !f.month) {
-            dirtyCells = {};
+            clearTableArea();
             return;
         }
         htmx.ajax('GET',
@@ -529,10 +541,24 @@
         });
     });
 
+    function cleanupBackdrop() {
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+        document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+    }
+
     document.getElementById('bulkDeleteModal').addEventListener('hidden.bs.modal', function(){
         document.getElementById('bd-confirm-input').value = '';
         document.getElementById('bd-confirm-btn').disabled = true;
         bdPending = null;
+        if (bulkDeleteModal) { bulkDeleteModal.dispose(); bulkDeleteModal = null; }
+        cleanupBackdrop();
+    });
+
+    document.getElementById('importModal').addEventListener('hidden.bs.modal', function(){
+        if (importModal) { importModal.dispose(); importModal = null; }
+        cleanupBackdrop();
     });
 
     /* ── Run Rules ────────────────────────────────────────────── */
