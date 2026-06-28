@@ -123,7 +123,7 @@ class TestBanksManageEdit:
         body = resp.text
         assert "SBI Bank" in body
         assert "Kuku Holdings" in body
-        assert "1111222233" in body
+        assert "******2233" in body
 
     def test_update_preserves_idempotent_values(self, client, _seed_account):
         account = _seed_account

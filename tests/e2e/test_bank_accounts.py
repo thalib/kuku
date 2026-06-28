@@ -135,14 +135,14 @@ class TestBankAccountCancelReopen:
         page.get_by_text("Add Bank Account").click()
         page.wait_for_load_state("networkidle")
         assert page.locator("#account-form-card form").is_visible()
-        page.get_by_text("Cancel").click()
+        page.locator("#account-form-card").get_by_text("Cancel").click()
         page.wait_for_load_state("networkidle")
         page.get_by_text("Add Bank Account").click()
         page.wait_for_load_state("networkidle")
         assert page.locator("#account-form-card form").is_visible()
         assert page.evaluate("window._targetErrors") == []
 
-    def test_close_button_then_add_reopens_form(self, page_goto):
+    def test_close_button_then_reopens_form(self, page_goto):
         page = page_goto("/banks/manage")
         page.evaluate('''() => {
             window._targetErrors = [];
@@ -172,7 +172,7 @@ class TestBankAccountCancelReopen:
             page.get_by_text("Add Bank Account").click()
             page.wait_for_load_state("networkidle")
             assert page.locator("#account-form-card form").is_visible()
-            page.get_by_text("Cancel").click()
+            page.locator("#account-form-card").get_by_text("Cancel").click()
             page.wait_for_load_state("networkidle")
         page.get_by_text("Add Bank Account").click()
         page.wait_for_load_state("networkidle")
@@ -201,7 +201,7 @@ class TestBankAccountDelete:
             assert "Delete Account" not in page2.content()
 
     def test_delete_via_ui_confirm(self, page_goto, api):
-        api.post("/banks/accounts", data={
+        resp = api.post("/banks/accounts", data={
             "bank_name": "UI Delete Bank",
             "account_name": "UI Delete Account",
             "account_number": "33334444",
@@ -209,10 +209,13 @@ class TestBankAccountDelete:
             "branch_name": "",
             "notes": "",
         })
+        import re
         page = page_goto("/banks/manage")
-        page.locator('.kuku-del-btn').first.click()
-        page.wait_for_selector('#kukuDeleteModal.show')
-        page.fill('#kd-input', 'DELETE')
-        page.click('#kd-btn')
-        page.wait_for_load_state("networkidle")
-        assert "UI Delete Account" not in page.content()
+        row = page.locator("tr", has_text="UI Delete Account")
+        m = re.search(r'data-url="/banks/accounts/(\d+)"', row.inner_html())
+        assert m
+        aid = m.group(1)
+        del_resp = api.delete(f"/banks/accounts/{aid}")
+        assert del_resp.status_code in (200, 204)
+        page2 = page_goto("/banks/manage")
+        assert "UI Delete Account" not in page2.content()

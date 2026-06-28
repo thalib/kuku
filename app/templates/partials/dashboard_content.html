@@ -21,54 +21,10 @@
         </form>
     </div>
 
-    {% if not has_data %}
-    <div class="card border-0 shadow-sm">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
-            <p class="text-muted mb-0">No transaction data available. Import bank transactions to see the dashboard.</p>
-        </div>
-    </div>
-    {% else %}
-
-    {% set accounts = data.get("accounts", []) %}
-    {% set monthly = data.get("monthly_data", []) %}
-    {% set top_income = data.get("top_income", []) %}
-    {% set top_expense = data.get("top_expense", []) %}
-    {% set total_income = data.get("total_income", 0) %}
-    {% set total_expense = data.get("total_expense", 0) %}
-    {% set net = data.get("net", 0) %}
-
-    <div class="row g-3 mb-3">
-        <div class="col-sm-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body py-3">
-                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Income</div>
-                    <div class="h5 mb-0 text-success" data-testid="dashboard-total-income">{{ "{:,.2f}".format(total_income) }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body py-3">
-                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Expense</div>
-                    <div class="h5 mb-0 text-danger" data-testid="dashboard-total-expense">{{ "{:,.2f}".format(total_expense) }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body py-3">
-                    <div class="text-muted small text-uppercase fw-semibold mb-1">Net</div>
-                    <div class="h5 mb-0 {% if net >= 0 %}text-success{% else %}text-danger{% endif %}" data-testid="dashboard-net">{{ "{:,.2f}".format(net) }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {% if accounts %}
     <section class="card border-0 shadow-sm mb-3">
         <div class="card-header py-2">
-            <h6 class="mb-0"><i class="bi bi-bank me-2"></i>Bank Accounts</h6>
+            <h6 class="mb-0"><i class="bi bi-bank me-2"></i>Recent Estimates</h6>
         </div>
         <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0" data-testid="dashboard-accounts-table">
@@ -102,6 +58,49 @@
         </div>
     </section>
     {% endif %}
+
+    {% if not has_data %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+            <p class="text-muted mb-0">No transaction data available. Import bank transactions to see the dashboard.</p>
+        </div>
+    </div>
+    {% else %}
+
+    {% set monthly = data.get("monthly_data", []) %}
+    {% set top_income = data.get("top_income", []) %}
+    {% set top_expense = data.get("top_expense", []) %}
+    {% set total_income = data.get("total_income", 0) %}
+    {% set total_expense = data.get("total_expense", 0) %}
+    {% set net = data.get("net", 0) %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Income</div>
+                    <div class="h5 mb-0 text-success" data-testid="dashboard-total-income">{{ "{:,.2f}".format(total_income) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Total Expense</div>
+                    <div class="h5 mb-0 text-danger" data-testid="dashboard-total-expense">{{ "{:,.2f}".format(total_expense) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Net</div>
+                    <div class="h5 mb-0 {% if net >= 0 %}text-success{% else %}text-danger{% endif %}" data-testid="dashboard-net">{{ "{:,.2f}".format(net) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row g-3 mb-3">
         <div class="col-12">
@@ -151,6 +150,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js"></script>
     <script>
     (function(){
         var monthlyData = {{ monthly | tojson }};

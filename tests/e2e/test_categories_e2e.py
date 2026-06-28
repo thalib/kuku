@@ -126,7 +126,7 @@ class TestCategoryCancelReopen:
         page.get_by_text("Add Category").click()
         page.wait_for_load_state("networkidle")
         assert page.locator("#category-form-card form").is_visible()
-        page.get_by_text("Cancel").click()
+        page.locator("#category-form-card").get_by_text("Cancel").click()
         page.wait_for_load_state("networkidle")
         page.get_by_text("Add Category").click()
         page.wait_for_load_state("networkidle")
@@ -179,10 +179,16 @@ class TestCategoryDelete:
         delete_btn = row.locator('.kuku-del-btn')
         delete_btn.click()
         page.wait_for_selector('#kukuDeleteModal.show')
-        page.fill('#kd-input', 'DELETE')
-        page.click('#kd-btn')
+        page.wait_for_timeout(500)
+        page.evaluate('''() => {
+            const input = document.getElementById('kd-input');
+            input.value = 'DELETE';
+            input.dispatchEvent(new Event('input'));
+        }''')
+        page.wait_for_function('!document.getElementById("kd-btn").disabled')
+        page.click('#kd-btn', force=True)
         page.wait_for_load_state("networkidle")
-        assert "E2E UI Delete Target" not in page.content()
+        assert "E2E UI Delete Target" not in page.locator("#hx-category-list").inner_html()
 
     def test_system_category_no_edit_delete_buttons(self, page_goto):
         page = page_goto("/banks/categories")

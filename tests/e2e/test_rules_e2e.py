@@ -134,7 +134,7 @@ class TestRuleCancelReopen:
         page.get_by_text("Add Rule").click()
         page.wait_for_load_state("networkidle")
         assert page.locator("#rule-form-card form").is_visible()
-        page.get_by_text("Cancel").click()
+        page.locator("#rule-form-card").get_by_text("Cancel").click()
         page.wait_for_load_state("networkidle")
         page.get_by_text("Add Rule").click()
         page.wait_for_load_state("networkidle")

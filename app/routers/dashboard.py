@@ -58,6 +58,8 @@ async def dashboard_content(
     if fy:
         data = await dash_svc.get_dashboard_data(db, fy, month)
 
+    accounts = data.get("accounts") or await dash_svc.get_accounts_with_balance(db)
+
     return templates.TemplateResponse(
         request,
         "partials/dashboard_content.html",
@@ -70,6 +72,7 @@ async def dashboard_content(
             "available_months": available_months,
             "fy_label": _fy_label(fy) if fy else "",
             "data": data,
+            "accounts": accounts,
             "has_data": bool(fy),
         },
     )

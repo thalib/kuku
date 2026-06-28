@@ -18,7 +18,7 @@
                     <tr>
                         <td class="fw-semibold">{{ a["bank_name"] }}</td>
                         <td>{{ a["account_name"] }}</td>
-                        <td><code class="small">{{ a["account_number"] }}</code></td>
+                        <td><code class="small">{{ '*' * (a["account_number"]|length - 4) }}{{ a["account_number"][-4:] }}</code></td>
                         <td class="small">{{ a["ifsc_code"] }}</td>
                         <td>
                             <form class="d-inline"
