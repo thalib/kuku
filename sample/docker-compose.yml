@@ -1,0 +1,13 @@
+services:
+  kuku:
+    image: ghcr.io/<owner>/kuku:latest
+    container_name: kuku
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=data/kuku.db
