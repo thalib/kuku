@@ -25,8 +25,8 @@ class TestRuleCreate:
     def test_add_form_opens(self, page_goto):
         page = page_goto("/banks/rules")
         page.get_by_text("Add Rule").click()
-        page.wait_for_load_state("networkidle")
         form = page.locator("#rule-form-card form")
+        form.wait_for(state="visible")
         assert form.is_visible()
         assert "Search Text" in page.content()
         assert "Match Type" in page.content()
