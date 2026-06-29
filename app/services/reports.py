@@ -1,10 +1,20 @@
 import aiosqlite
+from datetime import datetime
 
 from app.services.dashboard import get_available_fy_years, _fy_date_range, MONTH_NAMES, FY_MONTHS
 
 
+def _get_current_fy() -> int:
+    today = datetime.now()
+    return today.year if today.month >= 4 else today.year - 1
+
+
 async def get_report_fy_years(db: aiosqlite.Connection) -> list[int]:
-    return await get_available_fy_years(db)
+    years = await get_available_fy_years(db)
+    if not years:
+        current_fy = _get_current_fy()
+        years = [current_fy - 1, current_fy, current_fy + 1]
+    return sorted(years)
 
 
 async def _get_category_totals_by_type(
