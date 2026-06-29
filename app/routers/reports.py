@@ -86,7 +86,7 @@ async def balance_sheet_pdf(request: Request, fy: int):
     data = await report_svc.get_balance_sheet(db, fy)
     tmpl = _export_jinja.get_template("reports/balance_sheet/pdf.html")
     html = tmpl.render(data=data, company_name=COMPANY_NAME, fy_label=_fy_label(fy))
-    return _render_pdf("reports/balance_sheet/pdf.html", html, f"balance_sheet_{fy}_{fy+1}.pdf")
+    return _render_pdf("reports/balance_sheet/pdf.html", html, f"BALANCE_SHEET_{fy}_{fy+1}.pdf")
 
 
 @router.get("/reports/profit-loss", response_class=HTMLResponse)
@@ -115,7 +115,7 @@ async def profit_loss_pdf(request: Request, fy: int):
     data = await report_svc.get_profit_loss(db, fy)
     tmpl = _export_jinja.get_template("reports/profit_loss/pdf.html")
     html = tmpl.render(data=data, company_name=COMPANY_NAME, fy_label=_fy_label(fy))
-    return _render_pdf("reports/profit_loss/pdf.html", html, f"profit_loss_{fy}_{fy+1}.pdf")
+    return _render_pdf("reports/profit_loss/pdf.html", html, f"PROFIT_LOSS_{fy}_{fy+1}.pdf")
 
 
 @router.get("/reports/cash-flow", response_class=HTMLResponse)
@@ -144,4 +144,4 @@ async def cash_flow_pdf(request: Request, fy: int):
     data = await report_svc.get_cash_flow(db, fy)
     tmpl = _export_jinja.get_template("reports/cash_flow/pdf.html")
     html = tmpl.render(data=data, company_name=COMPANY_NAME, fy_label=_fy_label(fy))
-    return _render_pdf("reports/cash_flow/pdf.html", html, f"cash_flow_{fy}_{fy+1}.pdf")
+    return _render_pdf("reports/cash_flow/pdf.html", html, f"CASH_FLOW_{fy}_{fy+1}.pdf")

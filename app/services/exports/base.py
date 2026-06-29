@@ -10,7 +10,7 @@ from app.config import COMPANY_NAME
 
 
 def normalize_filename(value: str) -> str:
-    value = re.sub(r"[^a-z0-9]+", "_", value.lower().strip())
+    value = re.sub(r"[^A-Z0-9]+", "_", value.upper().strip())
     return re.sub(r"_{2,}", "_", value).strip("_")
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "exports")
