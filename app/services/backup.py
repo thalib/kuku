@@ -228,104 +228,116 @@ async def import_data(
         sections = ["accounts", "categories", "rules"]
 
     if "accounts" in sections:
-        for acc in backup["accounts"]:
-            try:
-                cursor = await db.execute(
-                    "SELECT id FROM bank_accounts WHERE bank_name = ? AND account_name = ? AND account_number = ?",
-                    (acc["bank_name"], acc["account_name"], acc["account_number"]),
-                )
-                if await cursor.fetchone():
-                    stats["skipped"]["accounts"] += 1
-                    continue
-                await db.execute(
-                    """INSERT INTO bank_accounts
-                       (bank_name, account_name, account_number, ifsc_code, branch_name, notes, is_active, is_system, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
-                    (acc["bank_name"], acc["account_name"], acc["account_number"],
-                     acc["ifsc_code"], acc.get("branch_name"), acc.get("notes"),
-                     acc.get("is_active", 1), now, now),
-                )
-                from app.services.categories import create_transfer_categories
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            for acc in backup["accounts"]:
                 try:
-                    await create_transfer_categories(db, acc["bank_name"], acc["account_name"])
-                except aiosqlite.IntegrityError:
-                    pass
-                stats["accounts_created"] += 1
-            except Exception as e:
-                stats["errors"].append({
-                    "section": "accounts",
-                    "record": f"{acc.get('bank_name', '?')} - {acc.get('account_name', '?')}",
-                    "error": str(e),
-                })
-
-        await db.commit()
+                    cursor = await db.execute(
+                        "SELECT id FROM bank_accounts WHERE bank_name = ? AND account_name = ? AND account_number = ?",
+                        (acc["bank_name"], acc["account_name"], acc["account_number"]),
+                    )
+                    if await cursor.fetchone():
+                        stats["skipped"]["accounts"] += 1
+                        continue
+                    await db.execute(
+                        """INSERT INTO bank_accounts
+                           (bank_name, account_name, account_number, ifsc_code, branch_name, notes, is_active, is_system, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                        (acc["bank_name"], acc["account_name"], acc["account_number"],
+                         acc["ifsc_code"], acc.get("branch_name"), acc.get("notes"),
+                         acc.get("is_active", 1), now, now),
+                    )
+                    from app.services.categories import create_transfer_categories
+                    try:
+                        await create_transfer_categories(db, acc["bank_name"], acc["account_name"])
+                    except aiosqlite.IntegrityError:
+                        pass
+                    stats["accounts_created"] += 1
+                except aiosqlite.Error as e:
+                    stats["errors"].append({
+                        "section": "accounts",
+                        "record": f"{acc.get('bank_name', '?')} - {acc.get('account_name', '?')}",
+                        "error": str(e),
+                    })
+            await db.execute("COMMIT")
+        except aiosqlite.Error:
+            await db.execute("ROLLBACK")
+            raise
 
     if "categories" in sections:
-        for cat in backup["categories"]:
-            try:
-                cursor = await db.execute(
-                    "SELECT id FROM transaction_categories WHERE name = ? AND type = ?",
-                    (cat["name"], cat["type"]),
-                )
-                if await cursor.fetchone():
-                    stats["skipped"]["categories"] += 1
-                    continue
-                await db.execute(
-                    """INSERT INTO transaction_categories
-                       (name, type, description, is_system, created_at, updated_at)
-                       VALUES (?, ?, ?, 0, ?, ?)""",
-                    (cat["name"], cat["type"], cat.get("description"), now, now),
-                )
-                stats["categories_created"] += 1
-            except Exception as e:
-                stats["errors"].append({
-                    "section": "categories",
-                    "record": f"{cat.get('name', '?')} ({cat.get('type', '?')})",
-                    "error": str(e),
-                })
-
-        await db.commit()
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            for cat in backup["categories"]:
+                try:
+                    cursor = await db.execute(
+                        "SELECT id FROM transaction_categories WHERE name = ? AND type = ?",
+                        (cat["name"], cat["type"]),
+                    )
+                    if await cursor.fetchone():
+                        stats["skipped"]["categories"] += 1
+                        continue
+                    await db.execute(
+                        """INSERT INTO transaction_categories
+                           (name, type, description, is_system, created_at, updated_at)
+                           VALUES (?, ?, ?, 0, ?, ?)""",
+                        (cat["name"], cat["type"], cat.get("description"), now, now),
+                    )
+                    stats["categories_created"] += 1
+                except aiosqlite.Error as e:
+                    stats["errors"].append({
+                        "section": "categories",
+                        "record": f"{cat.get('name', '?')} ({cat.get('type', '?')})",
+                        "error": str(e),
+                    })
+            await db.execute("COMMIT")
+        except aiosqlite.Error:
+            await db.execute("ROLLBACK")
+            raise
 
     if "rules" in sections:
-        cursor = await db.execute("SELECT id, name, type FROM transaction_categories")
-        cat_lookup = {}
-        for row in await cursor.fetchall():
-            cat_lookup[(row["name"], row["type"])] = row["id"]
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = await db.execute("SELECT id, name, type FROM transaction_categories")
+            cat_lookup = {}
+            for row in await cursor.fetchall():
+                cat_lookup[(row["name"], row["type"])] = row["id"]
 
-        for rule in backup["rules"]:
-            try:
-                cat_key = (rule["category_name"], rule["category_type"])
-                cat_id = cat_lookup.get(cat_key)
-                if not cat_id:
-                    stats["skipped"]["rules"] += 1
+            for rule in backup["rules"]:
+                try:
+                    cat_key = (rule["category_name"], rule["category_type"])
+                    cat_id = cat_lookup.get(cat_key)
+                    if not cat_id:
+                        stats["skipped"]["rules"] += 1
+                        stats["errors"].append({
+                            "section": "rules",
+                            "record": f"{rule.get('search_text', '?')} → {rule.get('category_name', '?')}",
+                            "error": f"Category '{rule.get('category_name', '?')}' not found",
+                        })
+                        continue
+                    cursor = await db.execute(
+                        "SELECT id FROM classification_rules WHERE search_text = ? AND match_type = ? AND category_id = ? AND priority = ?",
+                        (rule["search_text"], rule["match_type"], cat_id, rule["priority"]),
+                    )
+                    if await cursor.fetchone():
+                        stats["skipped"]["rules"] += 1
+                        continue
+                    await db.execute(
+                        """INSERT INTO classification_rules
+                           (search_text, match_type, category_id, priority, applies_to, is_active, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, 1, ?, ?)""",
+                        (rule["search_text"], rule["match_type"], cat_id, rule["priority"],
+                         rule.get("applies_to", "both"), now, now),
+                    )
+                    stats["rules_created"] += 1
+                except aiosqlite.Error as e:
                     stats["errors"].append({
                         "section": "rules",
                         "record": f"{rule.get('search_text', '?')} → {rule.get('category_name', '?')}",
-                        "error": f"Category '{rule.get('category_name', '?')}' not found",
+                        "error": str(e),
                     })
-                    continue
-                cursor = await db.execute(
-                    "SELECT id FROM classification_rules WHERE search_text = ? AND match_type = ? AND category_id = ? AND priority = ?",
-                    (rule["search_text"], rule["match_type"], cat_id, rule["priority"]),
-                )
-                if await cursor.fetchone():
-                    stats["skipped"]["rules"] += 1
-                    continue
-                await db.execute(
-                    """INSERT INTO classification_rules
-                       (search_text, match_type, category_id, priority, applies_to, is_active, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, 1, ?, ?)""",
-                    (rule["search_text"], rule["match_type"], cat_id, rule["priority"],
-                     rule.get("applies_to", "both"), now, now),
-                )
-                stats["rules_created"] += 1
-            except Exception as e:
-                stats["errors"].append({
-                    "section": "rules",
-                    "record": f"{rule.get('search_text', '?')} → {rule.get('category_name', '?')}",
-                    "error": str(e),
-                })
-
-        await db.commit()
+            await db.execute("COMMIT")
+        except aiosqlite.Error:
+            await db.execute("ROLLBACK")
+            raise
 
     return stats

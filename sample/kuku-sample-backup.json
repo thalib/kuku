@@ -1,0 +1,197 @@
+{
+  "version": 2,
+  "metadata": {
+    "created_at": "2026-06-29T10:30:00Z",
+    "created_by": "Kuku",
+    "app_version": "1.0",
+    "stats": {
+      "bank_accounts": 4,
+      "categories": 8,
+      "rules": 12
+    }
+  },
+  "data": {
+    "bank_accounts": [
+      {
+        "bank_name": "HDFC Bank",
+        "account_name": "Business Current Account",
+        "account_number": "501000123456",
+        "ifsc_code": "HDFC0001234",
+        "branch_name": "MG Road Branch, Bengaluru",
+        "notes": "Primary business account for daily operations",
+        "is_active": 1,
+        "is_system": 0
+      },
+      {
+        "bank_name": "State Bank of India",
+        "account_name": "Savings Account",
+        "account_number": "30123456789",
+        "ifsc_code": "SBIN0005678",
+        "branch_name": "Koramangala Branch, Bengaluru",
+        "notes": "Personal savings used for business expenses",
+        "is_active": 1,
+        "is_system": 0
+      },
+      {
+        "bank_name": "ICICI Bank",
+        "account_name": "Fixed Deposit Linked Current",
+        "account_number": "701009876543",
+        "ifsc_code": "ICIC0009876",
+        "branch_name": null,
+        "notes": "Current account linked to FD, used for vendor payments",
+        "is_active": 0,
+        "is_system": 0
+      },
+      {
+        "bank_name": "Axis Bank",
+        "account_name": "Premium Business Account",
+        "account_number": "913000456789",
+        "ifsc_code": "UTIB0002468",
+        "branch_name": "Indiranagar Branch, Bengaluru",
+        "notes": null,
+        "is_active": 1,
+        "is_system": 0
+      }
+    ],
+    "categories": [
+      {
+        "name": "Freelance Income",
+        "type": "Income",
+        "description": "Income from freelance development projects"
+      },
+      {
+        "name": "Consulting Revenue",
+        "type": "Income",
+        "description": "Revenue from IT consulting engagements"
+      },
+      {
+        "name": "Training Revenue",
+        "type": "Income",
+        "description": "Income from conducting workshops and training sessions"
+      },
+      {
+        "name": "Cloud Hosting",
+        "type": "Expense",
+        "description": "AWS, GCP and other cloud infrastructure costs"
+      },
+      {
+        "name": "Software Subscriptions",
+        "type": "Expense",
+        "description": "Monthly SaaS subscriptions (GitHub, Slack, Figma, etc.)"
+      },
+      {
+        "name": "Team Meals",
+        "type": "Expense",
+        "description": "Team lunches, client dinners and food expenses"
+      },
+      {
+        "name": "Equipment Purchases",
+        "type": "Asset",
+        "description": "Laptops, monitors, peripherals and office equipment"
+      },
+      {
+        "name": "Advance from Client",
+        "type": "Liability",
+        "description": "Advance payments received from clients for future work"
+      }
+    ],
+    "rules": [
+      {
+        "search_text": "NEFT",
+        "match_type": "contains",
+        "category_name": "Freelance Income",
+        "category_type": "Income",
+        "priority": 1,
+        "applies_to": "credit"
+      },
+      {
+        "search_text": "INWARD REMITTANCE",
+        "match_type": "contains",
+        "category_name": "Freelance Income",
+        "category_type": "Income",
+        "priority": 2,
+        "applies_to": "credit"
+      },
+      {
+        "search_text": "CONSULTING FEE",
+        "match_type": "contains",
+        "category_name": "Consulting Revenue",
+        "category_type": "Income",
+        "priority": 3,
+        "applies_to": "credit"
+      },
+      {
+        "search_text": "AWS",
+        "match_type": "contains",
+        "category_name": "Cloud Hosting",
+        "category_type": "Expense",
+        "priority": 1,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "GOOGLE CLOUD",
+        "match_type": "contains",
+        "category_name": "Cloud Hosting",
+        "category_type": "Expense",
+        "priority": 2,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "GITHUB",
+        "match_type": "contains",
+        "category_name": "Software Subscriptions",
+        "category_type": "Expense",
+        "priority": 5,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "SLACK TECHNOLOGIES",
+        "match_type": "contains",
+        "category_name": "Software Subscriptions",
+        "category_type": "Expense",
+        "priority": 6,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "SWIGGY",
+        "match_type": "contains",
+        "category_name": "Team Meals",
+        "category_type": "Expense",
+        "priority": 10,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "ZOMATO",
+        "match_type": "contains",
+        "category_name": "Team Meals",
+        "category_type": "Expense",
+        "priority": 10,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "APPLE INDIA",
+        "match_type": "contains",
+        "category_name": "Equipment Purchases",
+        "category_type": "Asset",
+        "priority": 15,
+        "applies_to": "debit"
+      },
+      {
+        "search_text": "ADVANCE PAYMENT",
+        "match_type": "contains",
+        "category_name": "Advance from Client",
+        "category_type": "Liability",
+        "priority": 20,
+        "applies_to": "credit"
+      },
+      {
+        "search_text": "INTEREST",
+        "match_type": "contains",
+        "category_name": "Interest Income",
+        "category_type": "Income",
+        "priority": 50,
+        "applies_to": "credit"
+      }
+    ]
+  }
+}

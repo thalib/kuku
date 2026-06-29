@@ -300,6 +300,16 @@
         });
     }
 
+    function initWidgetForRow(rowEl) {
+        var card = document.getElementById('tx-table-card');
+        if (!card) return;
+        try { allCats = JSON.parse(card.getAttribute('data-cats') || '[]'); } catch(e) { allCats = []; }
+        rowEl.querySelectorAll('.kuku-search-select[data-txn-id]').forEach(function(el) {
+            var txnId = el.getAttribute('data-txn-id');
+            searchSelectWidgets[txnId] = new KukuSearchSelect(el, allCats);
+        });
+    }
+
     window.onCategoryChanged = function(txnId, newVal, original, isDirty) {
         var row = document.getElementById('tx-row-' + txnId);
         if (isDirty) {
@@ -397,6 +407,7 @@
     document.addEventListener('htmx:afterSwap', function(e){
         if (e.detail.target.id === 'hx-filters') loadTable();
         if (e.detail.target.id === 'hx-table-area') initWidgets();
+        if (e.detail.target.id.startsWith('tx-row-') || e.detail.target.id.startsWith('tx-edit-')) initWidgetForRow(e.detail.target);
         if (e.detail.target.id === 'import-modal-body'){
             var label = document.querySelector('#import-modal-body .modal-title-label');
             document.getElementById('importModalLabel').textContent =

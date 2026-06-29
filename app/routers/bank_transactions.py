@@ -253,6 +253,7 @@ async def transaction_update(
     debit: str = Form("0"),
     credit: str = Form("0"),
     balance: str = Form("0"),
+    category_id: str = Form(""),
 ):
     db = await get_db()
     try:
@@ -264,15 +265,17 @@ async def transaction_update(
             debit=float(debit) if debit else 0,
             credit=float(credit) if credit else 0,
             balance=float(balance) if balance else 0,
+            category_id=int(category_id) if category_id else None,
         )
     except (ValueError, ValidationError):
         raise HTTPException(400, "Invalid data")
     updated = await tx_svc.update_transaction(db, txn_id, update_data)
     if not updated:
         raise HTTPException(404)
-    txn = await tx_svc.get_transaction(db, txn_id)
+    txn = await tx_svc.get_transaction_with_category(db, txn_id)
+    categories = await tx_svc.list_categories_for_transactions(db)
     return templates.TemplateResponse(
-        request, "partials/tx_row.html", {"txn": txn}
+        request, "partials/tx_row.html", {"txn": txn, "categories": categories}
     )
 
 

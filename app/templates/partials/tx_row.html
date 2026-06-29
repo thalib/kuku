@@ -1,7 +1,7 @@
 <tr id="tx-row-{{ txn['id'] }}" data-txn-id="{{ txn['id'] }}">
     <td class="ps-3 small text-nowrap">{{ txn["txn_date"] }}</td>
     <td class="small" style="white-space:normal">
-        <div>{{ txn["narration"] or "&mdash;" }}</div>
+        <div>{{ txn["narration"] or "\u2014" }}</div>
         {% if txn.get("reference") %}
         <div class="small text-muted mt-1">(REF: {{ txn["reference"] }})</div>
         {% endif %}

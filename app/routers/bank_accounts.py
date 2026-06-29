@@ -169,7 +169,7 @@ async def account_update(
                 "notes": notes or None,
             },
         )
-    except Exception:
+    except (ValueError, ValidationError):
         return templates.TemplateResponse(
             request,
             "partials/bank_account_form.html",

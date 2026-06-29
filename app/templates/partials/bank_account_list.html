@@ -23,6 +23,7 @@
                         <td>
                             <form class="d-inline"
                                   hx-post="{{ root_path }}/banks/accounts/{{ a['id'] }}/toggle"
+                                  hx-trigger="change"
                                   hx-target="#hx-account-list"
                                   hx-swap="outerHTML">
                                 <div class="form-check form-switch mb-0">

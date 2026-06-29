@@ -14,6 +14,8 @@ async def get_db() -> aiosqlite.Connection:
 
 async def init_db():
     db = await get_db()
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA foreign_keys=ON")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS bank_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

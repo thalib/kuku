@@ -1,6 +1,8 @@
-import hashlib
+import asyncio
 import io
 import json
+import secrets
+import time
 
 from fastapi import APIRouter, Request, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -14,6 +16,11 @@ from app.utils.templates import templates
 router = APIRouter()
 
 _pending_backups: dict[str, dict] = {}
+_backup_tokens_meta: dict[str, float] = {}
+_BACKUP_TOKEN_TTL = 600
+
+_import_lock = asyncio.Lock()
+_IMPORT_LOCK_TIMEOUT = 30
 
 
 def _backup_ctx(request: Request, **extra) -> dict:
@@ -26,9 +33,19 @@ def _backup_ctx(request: Request, **extra) -> dict:
     return ctx
 
 
+def _cleanup_expired_tokens():
+    now = time.monotonic()
+    expired = [t for t, ts in _backup_tokens_meta.items() if now - ts > _BACKUP_TOKEN_TTL]
+    for t in expired:
+        _pending_backups.pop(t, None)
+        _backup_tokens_meta.pop(t, None)
+
+
 def _make_token(payload: dict) -> str:
-    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(raw.encode()).hexdigest()[:24]
+    _cleanup_expired_tokens()
+    token = secrets.token_urlsafe(32)
+    _backup_tokens_meta[token] = time.monotonic()
+    return token
 
 
 @router.get("/backup", response_class=HTMLResponse)
@@ -113,6 +130,7 @@ async def backup_analyze(request: Request, file: UploadFile = Form(...)):
 
     token = _make_token(payload)
     _pending_backups[token] = payload
+    _backup_tokens_meta[token] = time.monotonic()
 
     return templates.TemplateResponse(
         request,
@@ -129,6 +147,7 @@ async def backup_analyze(request: Request, file: UploadFile = Form(...)):
 @router.post("/backup/import", response_class=HTMLResponse)
 async def backup_import(request: Request, token: str = Form(...), sections: str = Form("all")):
     payload = _pending_backups.pop(token, None)
+    _backup_tokens_meta.pop(token, None)
     if payload is None:
         return templates.TemplateResponse(
             request,
@@ -143,8 +162,27 @@ async def backup_import(request: Request, token: str = Form(...), sections: str 
         if selected:
             section_list = selected
 
-    db = await get_db()
-    stats = await backup_svc.import_data(db, payload, sections=section_list)
+    try:
+        async with asyncio.timeout(_IMPORT_LOCK_TIMEOUT):
+            await _import_lock.acquire()
+    except TimeoutError:
+        return templates.TemplateResponse(
+            request,
+            "partials/backup_error.html",
+            {"error": "Another restore operation is in progress. Please wait and try again."},
+        )
+
+    try:
+        db = await get_db()
+        stats = await backup_svc.import_data(db, payload, sections=section_list)
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request,
+            "partials/backup_error.html",
+            {"error": f"Import failed: {exc}"},
+        )
+    finally:
+        _import_lock.release()
 
     return templates.TemplateResponse(
         request,

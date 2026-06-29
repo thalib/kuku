@@ -141,7 +141,7 @@
         function update() {
             var checked = [];
             checkboxes.forEach(function(cb) { if (cb.checked) checked.push(cb.value); });
-            hiddenInput.value = checked.length === checkboxes.length || checked.length === 0 ? 'all' : checked.join(',');
+            hiddenInput.value = checked.length === checkboxes.length ? 'all' : (checked.length === 0 ? 'none' : checked.join(','));
         }
         checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
     })();

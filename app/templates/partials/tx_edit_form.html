@@ -7,7 +7,7 @@
     <td>
         <select name="category_id" class="form-select form-select-sm">
             <option value="" disabled {% if not txn.get("category_id") %}selected{% endif %}>Select…</option>
-            {% for type_name in ("Income", "Expense", "Asset", "Liability", "Equity") %}
+            {% for type_name in ("Income", "Expense", "Asset", "Liability", "Equity", "Transfer") %}
                 {% set type_cats = [] %}
                 {% for c in categories %}{% if c["type"] == type_name %}{% set _ = type_cats.append(c) %}{% endif %}{% endfor %}
                 {% if type_cats %}

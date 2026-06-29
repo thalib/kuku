@@ -221,4 +221,8 @@ __marimo__/
 temp/
 out/
 kuku.db
+kuku.db-shm
+kuku.db-wal
+*.db-shm
+*.db-wal
 .devdbrc
