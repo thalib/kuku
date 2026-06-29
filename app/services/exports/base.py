@@ -1,4 +1,5 @@
 import os
+import re
 from abc import ABC, abstractmethod
 from calendar import month_abbr
 from typing import Any
@@ -6,6 +7,11 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 
 from app.config import COMPANY_NAME
+
+
+def normalize_filename(value: str) -> str:
+    value = re.sub(r"[^a-z0-9]+", "_", value.lower().strip())
+    return re.sub(r"_{2,}", "_", value).strip("_")
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates", "exports")
 _jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
@@ -65,5 +71,7 @@ class BaseExporter(ABC):
     def render_pdf(self, **kwargs) -> bytes:
         ...
 
-    def filename(self, fy: int, month: int, ext: str) -> str:
-        return f"{self.domain}_{self.account_id}_{fy}_{month:02d}.{ext}"
+    def filename(self, year: int, month: int, ext: str) -> str:
+        company = normalize_filename(self.company_name)
+        bank_name = normalize_filename(self.account.get("bank_name") or str(self.account_id))
+        return f"{company}_{bank_name}_{year}_{month:02d}.{ext}"

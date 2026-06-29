@@ -274,7 +274,7 @@ async def export_csv(account_id: int, fy: int, month: int):
 
     exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
     content = exporter.render_csv(txns, summary)
-    fname = exporter.filename(fy, month, "csv")
+    fname = exporter.filename(calendar_year, month, "csv")
     return StreamingResponse(
         iter([content]),
         media_type="text/csv",
@@ -292,7 +292,7 @@ async def export_xlsx(account_id: int, fy: int, month: int):
 
     exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
     content = exporter.render_xlsx(txns, summary)
-    fname = exporter.filename(fy, month, "xlsx")
+    fname = exporter.filename(calendar_year, month, "xlsx")
     return StreamingResponse(
         iter([content]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -310,7 +310,7 @@ async def export_pdf(account_id: int, fy: int, month: int):
 
     exporter = export_svc.TransactionExporter(account, account_id, fy, calendar_year, month)
     content = exporter.render_pdf(txns, summary)
-    fname = exporter.filename(fy, month, "pdf")
+    fname = exporter.filename(calendar_year, month, "pdf")
     return StreamingResponse(
         iter([content]),
         media_type="application/pdf",
