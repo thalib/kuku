@@ -62,7 +62,11 @@ async def reports_index(request: Request):
 
 @router.get("/reports/balance-sheet", response_class=HTMLResponse)
 async def balance_sheet_page(request: Request):
-    return templates.TemplateResponse(request, "pages/reports/balance_sheet.html", _ctx("/reports/balance-sheet", "Balance Sheet"))
+    db = await get_db()
+    fy_years = await report_svc.get_report_fy_years(db)
+    ctx = _ctx("/reports/balance-sheet", "Balance Sheet")
+    ctx["fy_years"] = fy_years
+    return templates.TemplateResponse(request, "pages/reports/balance_sheet.html", ctx)
 
 
 @router.get("/reports/balance-sheet/content", response_class=HTMLResponse)
@@ -91,7 +95,11 @@ async def balance_sheet_pdf(request: Request, fy: int):
 
 @router.get("/reports/profit-loss", response_class=HTMLResponse)
 async def profit_loss_page(request: Request):
-    return templates.TemplateResponse(request, "pages/reports/profit_loss.html", _ctx("/reports/profit-loss", "Profit and Loss"))
+    db = await get_db()
+    fy_years = await report_svc.get_report_fy_years(db)
+    ctx = _ctx("/reports/profit-loss", "Profit and Loss")
+    ctx["fy_years"] = fy_years
+    return templates.TemplateResponse(request, "pages/reports/profit_loss.html", ctx)
 
 
 @router.get("/reports/profit-loss/content", response_class=HTMLResponse)
@@ -120,7 +128,11 @@ async def profit_loss_pdf(request: Request, fy: int):
 
 @router.get("/reports/cash-flow", response_class=HTMLResponse)
 async def cash_flow_page(request: Request):
-    return templates.TemplateResponse(request, "pages/reports/cash_flow.html", _ctx("/reports/cash-flow", "Cash Flow"))
+    db = await get_db()
+    fy_years = await report_svc.get_report_fy_years(db)
+    ctx = _ctx("/reports/cash-flow", "Cash Flow")
+    ctx["fy_years"] = fy_years
+    return templates.TemplateResponse(request, "pages/reports/cash_flow.html", ctx)
 
 
 @router.get("/reports/cash-flow/content", response_class=HTMLResponse)

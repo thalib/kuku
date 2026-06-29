@@ -8,6 +8,9 @@
             <label class="fw-semibold small text-nowrap">Financial Year:</label>
             <select name="fy" class="form-select form-select-sm" style="width:auto">
                 <option value="">Select FY</option>
+                {% for y in fy_years|reverse %}
+                <option value="{{ y }}">FY {{ y }}-{{ y + 1 }}</option>
+                {% endfor %}
             </select>
             <button type="submit" class="btn btn-sm btn-primary" id="btn-generate">
                 <i class="bi bi-play-circle me-1"></i>Generate Report
@@ -29,16 +32,6 @@
 </div>
 <script>
 (function(){
-    fetch(KUKU_BASE+'/reports/fy-years').then(function(r){ return r.json(); }).then(function(d){
-        var sel = document.querySelector('#report-container select[name="fy"]');
-        if (!sel) return;
-        (d.fy_years || []).reverse().forEach(function(y){
-            var opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = 'FY ' + y + '-' + (y + 1);
-            sel.appendChild(opt);
-        });
-    });
     window.showReportProgress = function(){
         var sel = document.querySelector('#report-container select[name="fy"]');
         if (!sel || !sel.value) return false;

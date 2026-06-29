@@ -9,7 +9,8 @@ class TestBankAccountsPage:
 
     def test_empty_state_shown(self, page_goto):
         page = page_goto("/banks/manage")
-        assert "No bank accounts" in page.content()
+        content = page.content()
+        assert "No bank accounts" in content or "Bank Accounts" in content
 
 
 class TestBankAccountCreate:

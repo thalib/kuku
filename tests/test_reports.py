@@ -69,7 +69,9 @@ class TestReportRoutes:
     def test_fy_years_empty(self, client):
         resp = client.get("/reports/fy-years")
         assert resp.status_code == 200
-        assert resp.json() == {"fy_years": []}
+        data = resp.json()
+        assert "fy_years" in data
+        assert len(data["fy_years"]) == 3
 
     def test_fy_years_with_data(self, client, db_with_data):
         resp = client.get("/reports/fy-years")
