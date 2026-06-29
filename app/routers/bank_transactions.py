@@ -127,12 +127,21 @@ async def import_preview(request: Request, account_id: int = Form(...), file: Up
     category_map = await tx_svc.get_category_name_map(db)
     
     unresolved_categories = set()
+    hashes = set()
     for txn in txns:
         if "category" in txn and txn["category"]:
             if txn["category"] not in category_map:
                 unresolved_categories.add(txn["category"])
                 txn["category_unresolved"] = True
+        hashes.add(tx_svc.compute_txn_hash(txn))
     
+    existing_hashes = await tx_svc.find_existing_txn_hashes(db, account_id, hashes)
+    duplicate_count = 0
+    for txn in txns:
+        h = tx_svc.compute_txn_hash(txn)
+        txn["is_duplicate"] = h in existing_hashes
+        if txn["is_duplicate"]:
+            duplicate_count += 1
     has_unresolved = len(unresolved_categories) > 0
 
     return templates.TemplateResponse(
@@ -142,6 +151,7 @@ async def import_preview(request: Request, account_id: int = Form(...), file: Up
             "account_id": account_id,
             "error": None,
             "count": len(txns),
+            "duplicate_count": duplicate_count,
             "has_categories": any("category" in t for t in txns),
             "unresolved_categories": sorted(list(unresolved_categories)) if unresolved_categories else None,
         },
@@ -180,7 +190,9 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
             else:
                 txn["category_id"] = None
     
-    count = await tx_svc.bulk_create_transactions(db, account_id, txns)
+    result = await tx_svc.bulk_create_transactions(db, account_id, txns, skip_existing=True)
+    count = result["count"]
+    skipped = result["skipped"]
 
     dates = [t["txn_date"] for t in txns if t.get("txn_date")]
     if dates:
@@ -191,7 +203,7 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
         now = date.today()
         fy, month = tx_svc.date_to_fy_start(now.year, now.month), now.month
 
-    resp_data = {"fy": fy, "month": month, "count": count}
+    resp_data = {"fy": fy, "month": month, "count": count, "skipped": skipped}
     if unresolved_categories:
         resp_data["unresolved_categories"] = sorted(list(unresolved_categories))
     

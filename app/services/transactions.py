@@ -1,5 +1,6 @@
 import aiosqlite
 import csv
+import hashlib
 import io
 import re
 from datetime import datetime, date, timezone
@@ -56,6 +57,18 @@ def _parse_date_str(val: str) -> date:
         except ValueError:
             continue
     raise ValueError(f"Cannot parse date: {val}")
+
+
+def compute_txn_hash(txn: dict) -> str:
+    parts = [
+        str(txn.get("txn_date", "")),
+        str(txn.get("narration", "")),
+        str(txn.get("reference", "")),
+        str(round(float(txn.get("debit", 0) or 0), 2)),
+        str(round(float(txn.get("credit", 0) or 0), 2)),
+    ]
+    raw = "|".join(parts)
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _find_header_row(all_rows: list[list[str]], max_scan: int = 40) -> int:
@@ -257,28 +270,48 @@ async def create_transaction(db: aiosqlite.Connection, data: TransactionCreate) 
     return await get_transaction(db, cursor.lastrowid)
 
 
+async def find_existing_txn_hashes(
+    db: aiosqlite.Connection, account_id: int, hashes: set[str]
+) -> set[str]:
+    if not hashes:
+        return set()
+    placeholders = ",".join(["?"] * len(hashes))
+    cursor = await db.execute(
+        f"SELECT txn_hash FROM bank_transactions WHERE account_id = ? AND txn_hash IN ({placeholders})",
+        (account_id, *hashes),
+    )
+    return {row["txn_hash"] for row in await cursor.fetchall()}
+
+
 async def bulk_create_transactions(
-    db: aiosqlite.Connection, account_id: int, txns: list[dict]
-) -> int:
+    db: aiosqlite.Connection, account_id: int, txns: list[dict], skip_existing: bool = False
+) -> dict:
     now = _now()
     rows = []
     
     for t in txns:
-        rows.append((
-            account_id, t["txn_date"], t["value_date"],
-            t.get("narration", ""), t.get("reference", ""),
-            t.get("debit", 0), t.get("credit", 0),
-            t.get("balance", 0), t.get("category_id"), now, now,
-        ))
+        h = compute_txn_hash(t)
+        rows.append((account_id, t["txn_date"], t["value_date"],
+             t.get("narration", ""), t.get("reference", ""),
+             t.get("debit", 0), t.get("credit", 0),
+             t.get("balance", 0), t.get("category_id"), now, now, h))
     
-    await db.executemany(
-        """INSERT INTO bank_transactions
-           (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        rows,
-    )
+    skipped = 0
+    if skip_existing:
+        hashes = {r[11] for r in rows}
+        existing = await find_existing_txn_hashes(db, account_id, hashes)
+        rows = [r for r in rows if r[11] not in existing]
+        skipped = len(existing)
+    
+    if rows:
+        await db.executemany(
+            """INSERT INTO bank_transactions
+               (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id, created_at, updated_at, txn_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
+        )
     await db.commit()
-    return len(rows)
+    return {"count": len(rows), "skipped": skipped}
 
 
 async def get_transaction(db: aiosqlite.Connection, txn_id: int) -> dict | None:

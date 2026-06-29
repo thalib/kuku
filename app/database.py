@@ -83,6 +83,11 @@ async def init_db():
         await db.execute("ALTER TABLE bank_transactions ADD COLUMN category_id INTEGER DEFAULT NULL")
     except aiosqlite.OperationalError:
         pass
+    try:
+        await db.execute("ALTER TABLE bank_transactions ADD COLUMN txn_hash TEXT DEFAULT ''")
+    except aiosqlite.OperationalError:
+        pass
+    await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_txn_hash ON bank_transactions(account_id, txn_hash) WHERE txn_hash != ''")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS classification_rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

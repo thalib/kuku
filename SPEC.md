@@ -197,6 +197,13 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - Import: file upload → preview (in modal dialog) → confirm → bulk insert
   - Preview shows Category column when categories are present in the file
   - Unmapped categories are shown with a warning alert and highlighted in the preview table
+  - **Duplicate detection**: During preview, each incoming transaction is fingerprinted by `(account_id, txn_date, narration, reference, debit, credit)`. If a matching transaction already exists in the DB for the same account, it is flagged as a duplicate.
+    - Preview shows a warning: "N duplicate transactions already exist and will be skipped."
+    - Duplicate rows are marked with a `bi-arrow-repeat` icon in the preview table
+    - On confirm, duplicate transactions are **skipped** by default (only new transactions are inserted)
+    - The import summary (HX-Trigger data) includes `skipped` count alongside `count`
+    - Post-import alert shows both counts: "X imported, Y skipped as duplicates."
+  - `bank_transactions` table has a `txn_hash` column (SHA-256 of fingerprint fields) with a UNIQUE index to enforce dedup at DB level
 - After successful import, filters and table auto-refresh to the imported FY/month
 - Export: CSV, Excel (xlsx), PDF
   - All exports include: header (company name, bank name, period), transaction table, and summary footer

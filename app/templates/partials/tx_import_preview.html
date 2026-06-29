@@ -13,6 +13,12 @@
 {% elif transactions %}
 <div>
     <span class="modal-title-label d-none">Preview — {{ count }} transactions</span>
+    {% if duplicate_count and duplicate_count > 0 %}
+        <div class="alert alert-warning py-2 small mb-2">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong>{{ duplicate_count }}</strong> duplicate transaction{{ 's' if duplicate_count != 1 else '' }} already exist{{ 's' if duplicate_count == 1 else '' }} and will be skipped.
+        </div>
+    {% endif %}
     {% if has_categories and unresolved_categories %}
         <div class="alert alert-warning py-2 small mb-2">
             <i class="bi bi-exclamation-triangle-fill me-1"></i>
@@ -45,9 +51,14 @@
                 </thead>
                 <tbody>
                 {% for t in transactions %}
-                    <tr>
+                    <tr{% if t.get("is_duplicate") %} class="table-secondary"{% endif %}>
                         <td class="ps-3 small text-muted">{{ loop.index }}</td>
-                        <td class="small text-nowrap">{{ t["txn_date"] }}</td>
+                        <td class="small text-nowrap">
+                            {{ t["txn_date"] }}
+                            {% if t.get("is_duplicate") %}
+                                <i class="bi bi-arrow-repeat ms-1 text-warning" title="Duplicate — will be skipped"></i>
+                            {% endif %}
+                        </td>
                         <td class="small" style="max-width:300px"><span class="d-inline-block text-truncate" style="max-width:300px" title="{{ t['narration'] }}">{{ t["narration"] or "-" }}</span></td>
                         {% if has_categories %}
                         <td class="small">
@@ -72,7 +83,11 @@
             </table>
         </div>
         <div class="card-footer d-flex justify-content-between align-items-center py-2">
-            <span class="small text-muted">{{ count }} transactions ready to import</span>
+            {% if duplicate_count and duplicate_count > 0 %}
+                <span class="small text-muted">{{ count - duplicate_count }} new, {{ duplicate_count }} duplicate{{ 's' if duplicate_count != 1 else '' }} to skip</span>
+            {% else %}
+                <span class="small text-muted">{{ count }} transactions ready to import</span>
+            {% endif %}
             <form hx-post="/banks/transactions/import/confirm" hx-swap="none">
                 <input type="hidden" name="account_id" value="{{ account_id }}">
                 <input type="hidden" name="data" value='{{ transactions | tojson }}'>

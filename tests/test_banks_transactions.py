@@ -201,6 +201,76 @@ class TestCSVImport:
         assert "No valid transactions" in resp.text or "Failed to parse" in resp.text
 
 
+class TestDuplicateDetection:
+    def test_compute_txn_hash_is_deterministic(self):
+        from app.services.transactions import compute_txn_hash
+        txn = {"txn_date": "2024-04-02", "narration": "NEFT", "reference": "REF001", "debit": 100, "credit": 0}
+        assert compute_txn_hash(txn) == compute_txn_hash(txn)
+
+    def test_compute_txn_hash_differs_for_different_txns(self):
+        from app.services.transactions import compute_txn_hash
+        t1 = {"txn_date": "2024-04-02", "narration": "NEFT", "reference": "REF001", "debit": 100, "credit": 0}
+        t2 = {"txn_date": "2024-04-02", "narration": "TPT", "reference": "REF002", "debit": 200, "credit": 0}
+        assert compute_txn_hash(t1) != compute_txn_hash(t2)
+
+    async def test_find_existing_txn_hashes_returns_matching(self, _seed_account):
+        from app.services.transactions import compute_txn_hash, bulk_create_transactions, find_existing_txn_hashes
+        from app.database import get_db
+        txns = [{"txn_date": "2024-04-02", "value_date": "2024-04-02", "narration": "Existing", "reference": "R1", "debit": 500, "credit": 0, "balance": 0}]
+        db = await get_db()
+        await bulk_create_transactions(db, _seed_account["id"], txns)
+        hashes = {compute_txn_hash(txns[0])}
+        found = await find_existing_txn_hashes(db, _seed_account["id"], hashes)
+        assert hashes == found
+
+    def test_preview_shows_no_duplicates_first_import(self, client, _seed_account):
+        resp = client.post(
+            "/banks/transactions/import/preview",
+            data={"account_id": str(_seed_account["id"])},
+            files={"file": ("hdfc.csv", HDFC_CSV.encode(), "text/csv")},
+        )
+        assert resp.status_code == 200
+        assert "3 transactions" in resp.text
+        assert "already exist" not in resp.text
+
+    async def test_preview_shows_duplicates_on_reimport(self, client, _seed_account):
+        from app.services.transactions import parse_csv_rows
+        txns = parse_csv_rows(HDFC_CSV)
+        client.post(
+            "/banks/transactions/import/confirm",
+            data={"account_id": str(_seed_account["id"]), "data": json.dumps(txns)},
+        )
+        resp = client.post(
+            "/banks/transactions/import/preview",
+            data={"account_id": str(_seed_account["id"])},
+            files={"file": ("hdfc.csv", HDFC_CSV.encode(), "text/csv")},
+        )
+        assert resp.status_code == 200
+        assert "3 duplicate" in resp.text
+
+    async def test_confirm_skips_duplicates_on_reimport(self, client, _seed_account):
+        from app.services.transactions import parse_csv_rows, list_transactions
+        from app.database import get_db
+        txns = parse_csv_rows(HDFC_CSV)
+        client.post(
+            "/banks/transactions/import/confirm",
+            data={"account_id": str(_seed_account["id"]), "data": json.dumps(txns)},
+        )
+        resp = client.post(
+            "/banks/transactions/import/confirm",
+            data={"account_id": str(_seed_account["id"]), "data": json.dumps(txns)},
+        )
+        assert resp.status_code == 200
+        trigger = json.loads(resp.headers["HX-Trigger"])
+        details = trigger["txImported"]
+        assert details["count"] == 0
+        assert details["skipped"] == 3
+
+        db = await get_db()
+        all_txns = await list_transactions(db, _seed_account["id"], 2024, 4)
+        assert len(all_txns) == 3
+
+
 class TestTransactionCRUD:
     def test_edit_form_returns_200(self, client, _seed_transactions, _get_txn_ids):
         tid = _get_txn_ids[0]
