@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid p-3 p-xl-4"
-     hx-get="/content" hx-trigger="load" hx-swap="innerHTML">
+     hx-get="{{ root_path }}/content" hx-trigger="load" hx-swap="innerHTML">
     <div class="text-center text-muted py-5">
         <div class="spinner-border spinner-border-sm me-2"></div>Loading dashboard...
     </div>

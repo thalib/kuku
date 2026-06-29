@@ -1,12 +1,10 @@
 import json
 import logging
-import os
 from calendar import month_abbr
 from datetime import date
 
 from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from app.config import APP_NAME, NAV_GROUPS
@@ -16,13 +14,11 @@ from app.services import transactions as tx_svc
 from app.services import exports as export_svc
 from app.models.transactions import TransactionUpdate, TransactionCategoryUpdate
 from app.utils.nav import mark_active_nav
+from app.utils.templates import templates
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
-
-_template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-templates = Jinja2Templates(directory=_template_dir)
 
 MONTHS = [
     (1, "JAN"), (2, "FEB"), (3, "MAR"), (4, "APR"),

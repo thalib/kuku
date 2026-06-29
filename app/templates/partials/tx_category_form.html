@@ -15,7 +15,7 @@
 <div class="d-flex gap-1 mt-1">
     <button type="button" class="btn btn-primary btn-sm py-0 px-2 tx-cat-save-btn"
             id="tx-cat-save-{{ txn['id'] }}"
-            hx-patch="/banks/transactions/{{ txn['id'] }}/category"
+            hx-patch="{{ root_path }}/banks/transactions/{{ txn['id'] }}/category"
             hx-include="#tx-cat-select-{{ txn['id'] }}"
             hx-target="#tx-cat-{{ txn['id'] }}"
             hx-swap="outerHTML">

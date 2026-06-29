@@ -2,7 +2,7 @@
     <div class="card-header d-flex justify-content-between align-items-center py-2">
         <strong class="small text-uppercase">{{ "Edit Bank Account" if account else "Add Bank Account" }}</strong>
         <button type="button" class="btn-close btn-close-white" aria-label="Close"
-                hx-get="/banks/accounts/clear-form"
+                hx-get="{{ root_path }}/banks/accounts/clear-form"
                 hx-target="#account-form-card"
                 hx-swap="innerHTML"></button>
     </div>
@@ -13,12 +13,12 @@
         </div>
         {% endif %}
         {% if account %}
-        <form hx-post="/banks/accounts/{{ account['id'] }}/update"
+        <form hx-post="{{ root_path }}/banks/accounts/{{ account['id'] }}/update"
               hx-target="#hx-account-list"
               hx-swap="outerHTML"
               hx-on::after-request='var el=document.getElementById("account-form-card"); if(el) { var listEl=document.getElementById("hx-account-list"); if (listEl && !listEl.querySelector("form")) { el.innerHTML="" } }'>
         {% else %}
-        <form hx-post="/banks/accounts"
+        <form hx-post="{{ root_path }}/banks/accounts"
               hx-target="#hx-account-list"
               hx-swap="outerHTML"
               hx-on::after-request='var el=document.getElementById("account-form-card"); if(el) { var listEl=document.getElementById("hx-account-list"); if (listEl && !listEl.querySelector("form")) { el.innerHTML="" } }'>
@@ -59,7 +59,7 @@
                     <i class="bi bi-check-lg me-1"></i> {{ "Update" if account else "Save" }}
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm"
-                        hx-get="/banks/accounts/clear-form"
+                        hx-get="{{ root_path }}/banks/accounts/clear-form"
                         hx-target="#account-form-card"
                         hx-swap="innerHTML">
                     Cancel

@@ -1,19 +1,14 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-import os
 
 from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import dashboard as dash_svc
 from app.services.transactions import MONTHS
 from app.utils.nav import mark_active_nav
+from app.utils.templates import templates
 
 router = APIRouter()
-
-_template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-
-from fastapi.templating import Jinja2Templates
-templates = Jinja2Templates(directory=_template_dir)
 
 
 def _fy_label(fy_start: int) -> str:

@@ -2,7 +2,7 @@
 
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
         <form id="dash-filter-form" class="d-flex flex-wrap align-items-center gap-2"
-              hx-get="/content" hx-target="#dashboard-root" hx-swap="outerHTML">
+              hx-get="{{ root_path }}/content" hx-target="#dashboard-root" hx-swap="outerHTML">
             <select name="fy" class="form-select form-select-sm" style="width:auto" data-testid="dashboard-fy-select">
                 <option value="">Financial Year</option>
                 {% for y in fy_years %}

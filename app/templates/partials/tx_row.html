@@ -18,12 +18,12 @@
     <td class="text-end small">{{ "{:,.2f}".format(txn["balance"]) }}</td>
     <td class="text-end pe-3">
         <button class="btn btn-outline-secondary btn-sm py-0 px-1"
-                hx-get="/banks/transactions/{{ txn['id'] }}/edit"
+                hx-get="{{ root_path }}/banks/transactions/{{ txn['id'] }}/edit"
                 hx-target="#tx-row-{{ txn['id'] }}"
                 hx-swap="outerHTML"
                 title="Edit"><i class="bi bi-pencil"></i></button>
         <button class="btn btn-outline-danger kuku-del-btn btn-sm py-0 px-1"
-                data-url="/banks/transactions/{{ txn['id'] }}"
+                data-url="{{ root_path }}/banks/transactions/{{ txn['id'] }}"
                 data-title="Delete Transaction"
                 data-detail="{{ txn['txn_date'] }} — {{ txn['narration'][:50] }}"
                 data-event="txDeleted"

@@ -3,7 +3,7 @@
 <div class="container-fluid p-3 p-xl-4" id="report-container">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <form class="d-flex flex-wrap align-items-center gap-2"
-              hx-get="/reports/profit-loss/content" hx-target="#report-root" hx-swap="outerHTML"
+              hx-get="{{ root_path }}/reports/profit-loss/content" hx-target="#report-root" hx-swap="outerHTML"
               onsubmit="return showReportProgress()">
             <label class="fw-semibold small text-nowrap">Financial Year:</label>
             <select name="fy" class="form-select form-select-sm" style="width:auto">
@@ -29,7 +29,7 @@
 </div>
 <script>
 (function(){
-    fetch('/reports/fy-years').then(function(r){ return r.json(); }).then(function(d){
+    fetch(KUKU_BASE+'/reports/fy-years').then(function(r){ return r.json(); }).then(function(d){
         var sel = document.querySelector('#report-container select[name="fy"]');
         if (!sel) return;
         (d.fy_years || []).reverse().forEach(function(y){

@@ -22,7 +22,7 @@
                         <td class="small">{{ a["ifsc_code"] }}</td>
                         <td>
                             <form class="d-inline"
-                                  hx-post="/banks/accounts/{{ a['id'] }}/toggle"
+                                  hx-post="{{ root_path }}/banks/accounts/{{ a['id'] }}/toggle"
                                   hx-target="#hx-account-list"
                                   hx-swap="outerHTML">
                                 <div class="form-check form-switch mb-0">
@@ -38,14 +38,14 @@
                             <div class="btn-group btn-group-sm" role="group">
                                 {% if not a["is_system"] %}
                                 <button class="btn btn-outline-secondary"
-                                        hx-get="/banks/accounts/{{ a['id'] }}/edit"
+                                        hx-get="{{ root_path }}/banks/accounts/{{ a['id'] }}/edit"
                                         hx-target="#account-form-card"
                                         hx-swap="innerHTML">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button class="btn btn-outline-danger kuku-del-btn"
-                                        data-url="/banks/accounts/{{ a['id'] }}"
-                                        data-check-url="/banks/accounts/{{ a['id'] }}/check-delete"
+                                        data-url="{{ root_path }}/banks/accounts/{{ a['id'] }}"
+                                        data-check-url="{{ root_path }}/banks/accounts/{{ a['id'] }}/check-delete"
                                         data-title="Delete Bank Account"
                                         data-detail="{{ a['bank_name'] }} — {{ a['account_name'] }}"
                                         data-target="#hx-account-list">

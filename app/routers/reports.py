@@ -3,21 +3,20 @@ import io
 import jinja2
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from xhtml2pdf import pisa
 import os
 
-from app.config import APP_NAME, NAV_GROUPS, COMPANY_NAME
+from app.config import APP_NAME, NAV_GROUPS, COMPANY_NAME, APP_ROOT_PATH
 from app.database import get_db
 from app.services import reports as report_svc
 from app.utils.nav import mark_active_nav
+from app.utils.templates import templates
 
 router = APIRouter()
 
-_template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-templates = Jinja2Templates(directory=_template_dir)
-
-_export_template_dir = os.path.join(_template_dir, "exports")
+_export_template_dir = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "templates", "exports"
+)
 _export_jinja = jinja2.Environment(
     loader=jinja2.FileSystemLoader(_export_template_dir),
     autoescape=True,
@@ -57,7 +56,8 @@ async def report_fy_years() -> JSONResponse:
 @router.get("/reports", response_class=HTMLResponse)
 async def reports_index(request: Request):
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/reports/profit-loss", status_code=302)
+    root = request.scope.get("root_path", "")
+    return RedirectResponse(url=f"{root}/reports/profit-loss", status_code=302)
 
 
 @router.get("/reports/balance-sheet", response_class=HTMLResponse)
@@ -69,12 +69,13 @@ async def balance_sheet_page(request: Request):
 async def balance_sheet_content(request: Request, fy: int):
     db = await get_db()
     data = await report_svc.get_balance_sheet(db, fy)
+    root = request.scope.get("root_path", "")
     return templates.TemplateResponse(request, "partials/reports/balance_sheet_content.html", {
         "data": data,
         "selected_fy": fy,
         "fy_label": _fy_label(fy),
         "report_name": "Balance Sheet",
-        "pdf_url": f"/reports/balance-sheet/pdf?fy={fy}",
+        "pdf_url": f"{root}/reports/balance-sheet/pdf?fy={fy}",
         "company_name": COMPANY_NAME,
     })
 
@@ -97,12 +98,13 @@ async def profit_loss_page(request: Request):
 async def profit_loss_content(request: Request, fy: int):
     db = await get_db()
     data = await report_svc.get_profit_loss(db, fy)
+    root = request.scope.get("root_path", "")
     return templates.TemplateResponse(request, "partials/reports/profit_loss_content.html", {
         "data": data,
         "selected_fy": fy,
         "fy_label": _fy_label(fy),
         "report_name": "Profit and Loss",
-        "pdf_url": f"/reports/profit-loss/pdf?fy={fy}",
+        "pdf_url": f"{root}/reports/profit-loss/pdf?fy={fy}",
         "company_name": COMPANY_NAME,
     })
 
@@ -125,12 +127,13 @@ async def cash_flow_page(request: Request):
 async def cash_flow_content(request: Request, fy: int):
     db = await get_db()
     data = await report_svc.get_cash_flow(db, fy)
+    root = request.scope.get("root_path", "")
     return templates.TemplateResponse(request, "partials/reports/cash_flow_content.html", {
         "data": data,
         "selected_fy": fy,
         "fy_label": _fy_label(fy),
         "report_name": "Cash Flow Statement",
-        "pdf_url": f"/reports/cash-flow/pdf?fy={fy}",
+        "pdf_url": f"{root}/reports/cash-flow/pdf?fy={fy}",
         "company_name": COMPANY_NAME,
     })
 

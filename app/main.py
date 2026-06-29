@@ -1,14 +1,14 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from app.config import APP_NAME
+from app.config import APP_NAME, APP_ROOT_PATH
 from app.database import init_db, close_db
 from app.routers import bank_accounts, bank_transactions, categories, rules, dashboard, reports
+from app.utils.templates import templates
 import os
 
 
@@ -30,14 +30,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-app = FastAPI(title="Kuku", lifespan=lifespan)
+app = FastAPI(title="Kuku", lifespan=lifespan, root_path=APP_ROOT_PATH)
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
-_template_dir = os.path.join(os.path.dirname(__file__), "templates")
-templates = Jinja2Templates(directory=_template_dir)
 
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 

@@ -7,7 +7,7 @@
                     <div class="px-2 mb-1 text-uppercase small fw-semibold text-secondary">{{ group["label"] }}</div>
                     <div class="d-grid gap-1">
                         {% for item in group["links"] %}
-                        <a href="{{ item["url"] }}"
+                        <a href="{{ root_path }}{{ item["url"] }}"
                            class="app-sidebar-link nav-link text-white d-flex align-items-center gap-2 px-2 py-2 rounded {% if item["active"] %}bg-primary{% endif %}">
                             <i class="bi flex-shrink-0 {{ item["icon"] }}"></i>
                             <span class="text-truncate">{{ item["name"] }}</span>
@@ -19,7 +19,7 @@
                 <div class="mb-3">
                     <div class="d-grid gap-1">
                         {% for item in group["links"] %}
-                        <a href="{{ item["url"] }}"
+                        <a href="{{ root_path }}{{ item["url"] }}"
                            class="app-sidebar-link nav-link text-white d-flex align-items-center gap-2 px-2 py-2 rounded {% if item["active"] %}bg-primary{% endif %}">
                             <i class="bi flex-shrink-0 {{ item["icon"] }}"></i>
                             <span class="text-truncate">{{ item["name"] }}</span>

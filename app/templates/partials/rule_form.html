@@ -2,7 +2,7 @@
     <div class="card-header d-flex justify-content-between align-items-center py-2">
         <strong class="small text-uppercase">{{ "Edit Rule" if rule else "Add Rule" }}</strong>
         <button type="button" class="btn-close btn-close-white" aria-label="Close"
-                hx-get="/banks/rules/clear-form"
+                hx-get="{{ root_path }}/banks/rules/clear-form"
                 hx-target="#rule-form-card"
                 hx-swap="innerHTML"></button>
     </div>
@@ -13,12 +13,12 @@
         </div>
         {% endif %}
         {% if rule %}
-        <form hx-post="/banks/rules/{{ rule['id'] }}/update"
+        <form hx-post="{{ root_path }}/banks/rules/{{ rule['id'] }}/update"
               hx-target="#hx-rule-list"
               hx-swap="outerHTML"
               hx-on::after-request='var el=document.getElementById("rule-form-card"); if(el) { var listEl=document.getElementById("hx-rule-list"); if (listEl && !listEl.querySelector("form")) { el.innerHTML="" } }'>
         {% else %}
-        <form hx-post="/banks/rules"
+        <form hx-post="{{ root_path }}/banks/rules"
               hx-target="#hx-rule-list"
               hx-swap="outerHTML"
               hx-on::after-request='var el=document.getElementById("rule-form-card"); if(el) { var listEl=document.getElementById("hx-rule-list"); if (listEl && !listEl.querySelector("form")) { el.innerHTML="" } }'>
@@ -97,7 +97,7 @@
                     <i class="bi bi-check-lg me-1"></i> {{ "Update" if rule else "Save" }}
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm"
-                        hx-get="/banks/rules/clear-form"
+                        hx-get="{{ root_path }}/banks/rules/clear-form"
                         hx-target="#rule-form-card"
                         hx-swap="innerHTML">
                     Cancel
