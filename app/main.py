@@ -37,8 +37,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 
-_static_mount = f"{APP_ROOT_PATH}/static" if APP_ROOT_PATH else "/static"
-app.mount(_static_mount, StaticFiles(directory=_static_dir), name="static")
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 app.include_router(dashboard.router, tags=["Dashboard"])
 app.include_router(bank_accounts.router, prefix="/banks", tags=["Bank Accounts"])
