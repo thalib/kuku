@@ -36,3 +36,19 @@ NAV_GROUPS = [
     },
 
 ]
+
+
+def print_config():
+    config_values = {
+        "APP_NAME": APP_NAME,
+        "APP_HOST": APP_HOST,
+        "APP_PORT": APP_PORT,
+        "DB_PATH": DB_PATH,
+        "COMPANY_NAME": COMPANY_NAME,
+    }
+    print("=" * 40)
+    print("Active Configuration:")
+    print("=" * 40)
+    for key, value in config_values.items():
+        print(f"{key} = {value}")
+    print("=" * 40)
