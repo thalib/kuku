@@ -39,7 +39,7 @@
                             hx-swap="innerHTML">
                         <option value="">-- Select Account --</option>
                         {% for a in accounts %}
-                        <option value="{{ a['id'] }}">{{ a["bank_name"] }} - {{ a["account_number"] }}</option>
+                        <option value="{{ a['id'] }}">{{ a["bank_name"] }} - ****{{ a["account_number"][-4:] }}</option>
                         {% endfor %}
                     </select>
                 </div>

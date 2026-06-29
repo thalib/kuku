@@ -1,7 +1,10 @@
 import os
+import logging
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
@@ -48,9 +51,9 @@ def print_config():
         "DB_PATH": DB_PATH,
         "COMPANY_NAME": COMPANY_NAME,
     }
-    print("=" * 40)
-    print("Active Configuration:")
-    print("=" * 40)
+    logger.info("=" * 40)
+    logger.info("Active Configuration:")
+    logger.info("=" * 40)
     for key, value in config_values.items():
-        print(f"{key} = {value}")
-    print("=" * 40)
+        logger.info(f"{key} = {value}")
+    logger.info("=" * 40)

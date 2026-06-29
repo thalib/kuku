@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from calendar import month_abbr
 from datetime import date
@@ -17,6 +18,8 @@ from app.models.transactions import TransactionUpdate, TransactionCategoryUpdate
 from app.utils.nav import mark_active_nav
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 _template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 templates = Jinja2Templates(directory=_template_dir)
@@ -98,6 +101,12 @@ async def import_form(request: Request, account_id: int):
 
 @router.post("/transactions/import/preview", response_class=HTMLResponse)
 async def import_preview(request: Request, account_id: int = Form(...), file: UploadFile = File(...)):
+    if file.size and file.size > 10 * 1024 * 1024:
+        return templates.TemplateResponse(
+            request, "partials/tx_import_preview.html",
+            {"error": "File size exceeds 10MB limit.", "transactions": [], "account_id": account_id, "count": 0},
+        )
+    
     filename = file.filename or "unknown"
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
@@ -112,9 +121,10 @@ async def import_preview(request: Request, account_id: int = Form(...), file: Up
             content = (await file.read()).decode("utf-8-sig")
             txns = tx_svc.parse_csv_rows(content)
     except Exception as e:
+        logger.exception("File parse error during import preview")
         return templates.TemplateResponse(
             request, "partials/tx_import_preview.html",
-            {"error": f"Failed to parse file: {e}", "transactions": [], "account_id": account_id, "count": 0},
+            {"error": "Failed to parse file. Please check the format and try again.", "transactions": [], "account_id": account_id, "count": 0},
         )
 
     if not txns:

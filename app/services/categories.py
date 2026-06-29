@@ -225,21 +225,25 @@ async def update_transfer_categories(
         return 0
 
     now = _now()
+    old_to = f"to {old_label}"
+    new_to = f"to {new_label}"
     cursor = await db.execute(
-        f"""UPDATE transaction_categories
-           SET name = REPLACE(name, 'to {old_label}', 'to {new_label}'),
+        """UPDATE transaction_categories
+           SET name = REPLACE(name, ?, ?),
                updated_at = ?
            WHERE is_system = 1 AND type = 'Transfer'
-             AND name = 'to {old_label}'""",
-        (now,),
+             AND name = ?""",
+        (old_to, new_to, now, old_to),
     )
+    old_from = f"from {old_label}"
+    new_from = f"from {new_label}"
     cursor2 = await db.execute(
-        f"""UPDATE transaction_categories
-           SET name = REPLACE(name, 'from {old_label}', 'from {new_label}'),
+        """UPDATE transaction_categories
+           SET name = REPLACE(name, ?, ?),
                updated_at = ?
            WHERE is_system = 1 AND type = 'Transfer'
-             AND name = 'from {old_label}'""",
-        (now,),
+             AND name = ?""",
+        (old_from, new_from, now, old_from),
     )
     await db.commit()
     return cursor.rowcount + cursor2.rowcount
