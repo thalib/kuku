@@ -34,6 +34,15 @@ async def ensure_cash_in_hand(db: aiosqlite.Connection) -> dict:
         (now, now),
     )
     await db.commit()
+
+    from app.services.categories import create_transfer_categories
+
+    try:
+        await create_transfer_categories(db, 'Cash In Hand', 'Petty Cash')
+        await db.commit()
+    except aiosqlite.IntegrityError:
+        pass
+
     return await get_account(db, cursor.lastrowid)
 
 

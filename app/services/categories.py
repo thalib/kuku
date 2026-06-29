@@ -70,8 +70,8 @@ async def init_categories(db: aiosqlite.Connection) -> int:
         "SELECT name, type FROM transaction_categories WHERE is_system = 1"
     )
     existing = {(row["name"], row["type"]) for row in await cursor.fetchall()}
-    expected = len(SYSTEM_CATEGORIES)
-    if len(existing) >= expected:
+    expected_set = {(name, ctype) for name, ctype, _ in SYSTEM_CATEGORIES}
+    if expected_set <= existing:
         return 0
     now = _now()
     inserted = 0

@@ -474,7 +474,7 @@ async def get_available_months(
                  (CAST(strftime('%m', txn_date) AS INTEGER) < 4
                   AND strftime('%Y', txn_date) = CAST(? AS TEXT))
              )
-           ORDER BY m""",
+            ORDER BY CASE WHEN m >= 4 THEN 0 ELSE 1 END, m""",
         (account_id, fy_start, fy_start + 1),
     )
     return [int(r[0]) for r in await cursor.fetchall()]
