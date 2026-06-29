@@ -49,8 +49,10 @@ class TestBanksManagePage:
         body = client.get("/banks/manage").text
         assert "Add Bank Account" in body
 
-    def test_empty_state_shown_when_no_accounts(self, client):
-        assert "No bank accounts" in client.get("/banks/manage").text
+    def test_empty_state_shown_when_no_user_accounts(self, client):
+        body = client.get("/banks/manage").text
+        assert "Cash In Hand" in body
+        assert "System" in body
 
 
 class TestBanksManageAdd:

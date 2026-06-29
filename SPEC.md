@@ -200,6 +200,7 @@ The current reports are derived entirely from bank transaction imports and their
 | branch_name    | no       | Optional branch                         |
 | notes          | no       | Free text                               |
 | is_active      | —        | Boolean, default True (toggle on/off)   |
+| is_system      | —        | Boolean, default False, True for system accounts (cannot be deleted) |
 | created_at     | —        | Auto-set on create                      |
 | updated_at     | —        | Auto-set on every update                |
 
@@ -232,9 +233,26 @@ The current reports are derived entirely from bank transaction imports and their
 | DELETE   | /banks/accounts/{id}               | Delete (HTMX, blocked if has transactions) |
 | GET      | /banks/accounts/{id}/check-delete  | Pre-delete check (JSON)         |
 
+### System Account: Cash In Hand
+
+A system-level bank account is automatically created during database initialization and cannot be deleted by users. This account is used to manage petty cash transactions.
+
+| Attribute      | Value           |
+|----------------|-----------------|
+| bank_name      | Cash In Hand    |
+| account_name   | Petty Cash      |
+| is_system      | True            |
+
+- **Creation**: Created automatically by `ensure_cash_in_hand()` in `app/services/bank_accounts.py` during `init_db()`. If the account already exists, no action is taken.
+- **Delete Protection**: The account cannot be deleted. 
+  - `DELETE /banks/accounts/{id}` returns HTTP 403 if the account is a system account.
+  - The delete button is hidden in the UI for system accounts.
+- **Transaction Support**: The system account fully supports import, export, edit, delete, and bulk operations just like any other bank account.
+- **UI Behavior**: System accounts display a "System" badge instead of Delete/Edit buttons in the account list (`partials/bank_account_list.html`).
+
 ### Database
 
-Table name: `bank_accounts`. Created by `init_db()`.
+Table name: `bank_accounts`. Created by `init_db()`. Column `is_system` added via migration.
 
 ## Bank Transactions
 

@@ -90,6 +90,11 @@ async def account_delete(request: Request, account_id: int):
     account = await bank_svc.get_account(db, account_id)
     if not account:
         raise HTTPException(404)
+    if account.get("is_system", 0):
+        return JSONResponse(
+            {"error": "System bank accounts cannot be deleted."},
+            status_code=403,
+        )
     txn_count = await bank_svc.count_transactions(db, account_id)
     if txn_count > 0:
         return JSONResponse(
@@ -111,6 +116,12 @@ async def account_check_delete(account_id: int):
     account = await bank_svc.get_account(db, account_id)
     if not account:
         raise HTTPException(404)
+    if account.get("is_system", 0):
+        return {
+            "can_delete": False,
+            "txn_count": 0,
+            "message": "System bank accounts cannot be deleted.",
+        }
     txn_count = await bank_svc.count_transactions(db, account_id)
     if txn_count > 0:
         return {

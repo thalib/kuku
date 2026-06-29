@@ -13,6 +13,30 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+async def get_system_account(db: aiosqlite.Connection) -> dict | None:
+    cursor = await db.execute(
+        "SELECT * FROM bank_accounts WHERE is_system = 1 AND bank_name = 'Cash In Hand' AND account_name = 'Petty Cash'"
+    )
+    return _row_to_dict(await cursor.fetchone())
+
+
+async def ensure_cash_in_hand(db: aiosqlite.Connection) -> dict:
+    existing = await get_system_account(db)
+    if existing:
+        return existing
+    now = _now()
+    cursor = await db.execute(
+        """INSERT INTO bank_accounts
+           (bank_name, account_name, account_number, ifsc_code, branch_name, notes,
+            is_active, is_system, created_at, updated_at)
+           VALUES ('Cash In Hand', 'Petty Cash', 'N/A', 'N/A', NULL, 'System petty cash account',
+                   1, 1, ?, ?)""",
+        (now, now),
+    )
+    await db.commit()
+    return await get_account(db, cursor.lastrowid)
+
+
 async def create_account(db: aiosqlite.Connection, data: BankAccountCreate) -> dict:
     now = _now()
     cursor = await db.execute(
@@ -71,6 +95,8 @@ async def count_transactions(db: aiosqlite.Connection, account_id: int) -> int:
 async def delete_account(db: aiosqlite.Connection, account_id: int) -> bool:
     account = await get_account(db, account_id)
     if not account:
+        return False
+    if account.get("is_system", 0):
         return False
 
     from app.services.categories import delete_transfer_categories

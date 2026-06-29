@@ -81,8 +81,9 @@ class TestTransactionsPage:
         body = client.get("/banks/transactions").text
         assert "HDFC Bank" in body
 
-    def test_page_shows_empty_state_when_no_accounts(self, client):
-        assert "No active bank accounts" in client.get("/banks/transactions").text
+    def test_page_shows_system_account_in_dropdown(self, client):
+        body = client.get("/banks/transactions").text
+        assert "Cash In Hand" in body
 
     def test_no_view_button_on_page(self, client, _seed_account):
         body = client.get("/banks/transactions").text

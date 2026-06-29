@@ -36,6 +36,7 @@
                         </td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm" role="group">
+                                {% if not a["is_system"] %}
                                 <button class="btn btn-outline-secondary"
                                         hx-get="/banks/accounts/{{ a['id'] }}/edit"
                                         hx-target="#account-form-card"
@@ -50,6 +51,9 @@
                                         data-target="#hx-account-list">
                                     <i class="bi bi-trash"></i>
                                 </button>
+                                {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">System</span>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

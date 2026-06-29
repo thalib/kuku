@@ -125,6 +125,12 @@ async def init_db():
         await db.execute("SELECT applies_to FROM classification_rules LIMIT 1")
     except aiosqlite.OperationalError:
         await db.execute("ALTER TABLE classification_rules ADD COLUMN applies_to TEXT NOT NULL DEFAULT 'both'")
+    try:
+        await db.execute("ALTER TABLE bank_accounts ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0")
+    except aiosqlite.OperationalError:
+        pass
+    from app.services.bank_accounts import ensure_cash_in_hand
+    await ensure_cash_in_hand(db)
     from app.services.categories import init_categories
     await init_categories(db)
     from app.services.transactions import auto_classify_existing_transactions
