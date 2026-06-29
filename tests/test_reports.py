@@ -165,3 +165,78 @@ class TestReportService:
         assert bs["total_assets"] == 0
         cf = await get_cash_flow(db, 2025)
         assert cf["net_change"] == 0
+
+    @pytest.mark.asyncio
+    async def test_cash_flow_derives_opening_from_first_credit_txn(self, db):
+        from app.services.reports import get_cash_flow
+
+        await db.execute("""
+            INSERT INTO bank_accounts (bank_name, account_name, account_number, ifsc_code, branch_name, is_system)
+            VALUES ('HDFC', 'Test', 'X1', 'X1', NULL, 1)
+        """)
+        row = await (await db.execute(
+            "SELECT id FROM bank_accounts WHERE account_name = 'Test'")).fetchone()
+        acc_id = row["id"]
+
+        await db.execute("""
+            INSERT INTO bank_transactions
+                (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id)
+            VALUES (?, '2025-08-10', '2025-08-10', 'Cash received', '', 0, 100, 9500,
+                (SELECT id FROM transaction_categories WHERE name = 'Sales Revenue' AND type = 'Income' AND is_system = 1 LIMIT 1))
+        """, (acc_id,))
+        await db.commit()
+
+        data = await get_cash_flow(db, 2025)
+        assert data["opening_cash"] == 9400.0
+
+    @pytest.mark.asyncio
+    async def test_cash_flow_derives_opening_from_first_debit_txn(self, db):
+        from app.services.reports import get_cash_flow
+
+        await db.execute("""
+            INSERT INTO bank_accounts (bank_name, account_name, account_number, ifsc_code, branch_name, is_system)
+            VALUES ('HDFC', 'Test2', 'X2', 'X2', NULL, 1)
+        """)
+        row = await (await db.execute(
+            "SELECT id FROM bank_accounts WHERE account_name = 'Test2'")).fetchone()
+        acc_id = row["id"]
+
+        await db.execute("""
+            INSERT INTO bank_transactions
+                (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id)
+            VALUES (?, '2025-08-10', '2025-08-10', 'Cash paid', '', 200, 0, 9300,
+                (SELECT id FROM transaction_categories WHERE name = 'Rent & Lease' AND type = 'Expense' AND is_system = 1 LIMIT 1))
+        """, (acc_id,))
+        await db.commit()
+
+        data = await get_cash_flow(db, 2025)
+        assert data["opening_cash"] == 9500.0
+
+    @pytest.mark.asyncio
+    async def test_cash_flow_opening_uses_prior_balance_when_available(self, db):
+        from app.services.reports import get_cash_flow
+
+        await db.execute("""
+            INSERT INTO bank_accounts (bank_name, account_name, account_number, ifsc_code, branch_name, is_system)
+            VALUES ('HDFC', 'Test3', 'X3', 'X3', NULL, 1)
+        """)
+        row = await (await db.execute(
+            "SELECT id FROM bank_accounts WHERE account_name = 'Test3'")).fetchone()
+        acc_id = row["id"]
+
+        await db.execute("""
+            INSERT INTO bank_transactions
+                (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id)
+            VALUES (?, '2025-03-15', '2025-03-15', 'Prior year sale', '', 0, 5000, 5000,
+                (SELECT id FROM transaction_categories WHERE name = 'Sales Revenue' AND type = 'Income' AND is_system = 1 LIMIT 1))
+        """, (acc_id,))
+        await db.execute("""
+            INSERT INTO bank_transactions
+                (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id)
+            VALUES (?, '2025-08-10', '2025-08-10', 'Cash received', '', 0, 100, 5100,
+                (SELECT id FROM transaction_categories WHERE name = 'Sales Revenue' AND type = 'Income' AND is_system = 1 LIMIT 1))
+        """, (acc_id,))
+        await db.commit()
+
+        data = await get_cash_flow(db, 2025)
+        assert data["opening_cash"] == 5000.0

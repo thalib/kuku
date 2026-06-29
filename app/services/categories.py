@@ -34,6 +34,8 @@ SYSTEM_CATEGORIES = [
     ("Interest Paid", "Expense", "Interest on loans, overdrafts and borrowings"),
     ("Depreciation", "Expense", "Depreciation of fixed assets"),
     ("Tax Expense", "Expense", "Direct taxes paid (income tax, property tax)"),
+    ("Shipping & Transport", "Expense", "Freight, carriage, delivery and logistics charges"),
+    ("Shipping & Transport", "Income", "Shipping and logistics charges billed to customers"),
     ("Miscellaneous Expense", "Expense", "Other expenses not elsewhere classified"),
     ("Uncategorized Expense", "Expense", "(Default) Expense not yet classified"),
     ("Cash & Bank", "Asset", "Cash in hand and balances in bank accounts"),
@@ -64,22 +66,25 @@ def _now() -> str:
 
 
 async def init_categories(db: aiosqlite.Connection) -> int:
-    cursor = await db.execute("SELECT COUNT(*) FROM transaction_categories WHERE is_system = 1")
-    row = await cursor.fetchone()
-    if row[0] > 0:
+    cursor = await db.execute(
+        "SELECT name, type FROM transaction_categories WHERE is_system = 1"
+    )
+    existing = {(row["name"], row["type"]) for row in await cursor.fetchall()}
+    expected = len(SYSTEM_CATEGORIES)
+    if len(existing) >= expected:
         return 0
     now = _now()
-    rows = [
-        (name, ctype, desc, 1, now, now)
-        for name, ctype, desc in SYSTEM_CATEGORIES
-    ]
-    await db.executemany(
-        """INSERT INTO transaction_categories
-           (name, type, description, is_system, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        rows,
-    )
-    return len(rows)
+    inserted = 0
+    for name, ctype, desc in SYSTEM_CATEGORIES:
+        if (name, ctype) not in existing:
+            await db.execute(
+                """INSERT INTO transaction_categories
+                   (name, type, description, is_system, created_at, updated_at)
+                   VALUES (?, ?, ?, 1, ?, ?)""",
+                (name, ctype, desc, now, now),
+            )
+            inserted += 1
+    return inserted
 
 
 async def create_category(db: aiosqlite.Connection, data: CategoryCreate) -> dict:

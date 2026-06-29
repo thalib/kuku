@@ -74,6 +74,14 @@ class TestCategoriesSeeding:
         assert "LIABILITY:Accounts Payable" in body
         assert "EQUITY:Owner Capital" in body
 
+    def test_shipping_transport_expense_seeded(self, client):
+        body = client.get("/banks/categories").text
+        assert "EXPENSE:Shipping &amp; Transport" in body
+
+    def test_shipping_transport_income_seeded(self, client):
+        body = client.get("/banks/categories").text
+        assert "INCOME:Shipping &amp; Transport" in body
+
     async def test_system_categories_seeded_once(self, client):
         from app.services.categories import list_categories
 
@@ -81,6 +89,39 @@ class TestCategoriesSeeding:
         cats = await list_categories(db)
         count = len([c for c in cats if c["is_system"]])
         assert count > 0
+
+    async def test_new_system_categories_seeded_into_existing_db(self):
+        from app.services.categories import list_categories, init_categories
+
+        db = await database.get_db()
+        cats_before = await list_categories(db)
+        shipping_before = [
+            c for c in cats_before
+            if c["name"] == "Shipping & Transport" and c["is_system"]
+        ]
+        assert len(shipping_before) == 2
+
+        await db.execute(
+            "DELETE FROM transaction_categories WHERE name = 'Shipping & Transport'"
+        )
+        await db.commit()
+
+        cats_mid = await list_categories(db)
+        shipping_mid = [
+            c for c in cats_mid
+            if c["name"] == "Shipping & Transport" and c["is_system"]
+        ]
+        assert len(shipping_mid) == 0
+
+        await init_categories(db)
+        await db.commit()
+
+        cats_after = await list_categories(db)
+        shipping_after = [
+            c for c in cats_after
+            if c["name"] == "Shipping & Transport" and c["is_system"]
+        ]
+        assert len(shipping_after) == 2
 
     def test_all_five_types_present(self, client):
         resp = client.get("/banks/categories")

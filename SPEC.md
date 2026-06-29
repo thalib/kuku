@@ -131,7 +131,8 @@ Three financial reports generated on demand from transaction and category data. 
 - Investing: Asset category debits (purchases) and credits (disposals)
 - Financing: Liability and Equity credits (inflows like loans/capital) and debits (outflows like repayments/drawings)
 - Net cash flow = Operating + Investing + Financing
-- Summary cards: Opening Cash (bank balance at FY start), Net Change, Closing Cash (bank balance at FY end)
+- Summary cards: Opening Cash, Net Change, Closing Cash (bank balance at FY end)
+- Opening Cash: for each account, uses the last known balance before FY start. If no transactions exist before FY start, the opening is derived from the first recorded transaction: `opening = first_txn.balance - first_txn.credit + first_txn.debit`. Falls back to 0 when an account has no transactions at all.
 - Closing Cash by Account table
 
 ### Financial Year
@@ -394,10 +395,10 @@ Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_account
 | created_at  | —        | Auto-set on create                                 |
 | updated_at  | —        | Auto-set on every update                           |
 
-### System Categories (39 defaults)
+### System Categories (43 defaults)
 
-**Income (8):** Sales Revenue, Service Revenue, Interest Income, Rent Income, Commission Income, Dividend Income, Capital Gains, Other Income.
-**Expense (17):** Cost of Goods Sold, Salaries & Wages, Payroll Taxes & Benefits, Rent & Lease, Utilities, Telephone & Internet, Advertising & Marketing, Insurance, Office Supplies, Professional Fees, Travel & Conveyance, Repairs & Maintenance, Bank Charges, Interest Paid, Depreciation, Tax Expense, Miscellaneous Expense.
+**Income (10):** Sales Revenue, Service Revenue, Interest Income, Rent Income, Commission Income, Dividend Income, Capital Gains, Shipping & Transport, Other Income, Uncategorized Income.
+**Expense (19):** Cost of Goods Sold, Salaries & Wages, Payroll Taxes & Benefits, Rent & Lease, Utilities, Telephone & Internet, Advertising & Marketing, Insurance, Office Supplies, Professional Fees, Travel & Conveyance, Repairs & Maintenance, Bank Charges, Interest Paid, Depreciation, Tax Expense, Shipping & Transport, Miscellaneous Expense, Uncategorized Expense.
 **Asset (5):** Cash & Bank, Accounts Receivable, Inventory, Fixed Assets, Investments.
 **Liability (6):** Accounts Payable, Short-term Loans, Long-term Loans, Credit Card Payable, Tax Payable, Advances Received.
 **Equity (3):** Owner Capital, Retained Earnings, Owner Drawings.

@@ -83,12 +83,42 @@ async def _get_bank_balances_as_of(db: aiosqlite.Connection, as_of_date: str) ->
                    (SELECT t.balance FROM bank_transactions t
                     WHERE t.account_id = a.id AND t.txn_date < ?
                     ORDER BY t.txn_date DESC, t.id DESC LIMIT 1),
-                   0
-               ) AS balance
+                    0
+                ) AS balance
         FROM bank_accounts a
         WHERE a.is_active = 1
         ORDER BY a.bank_name, a.account_name
     """, (as_of_date,))
+    return [dict(r) for r in await cursor.fetchall()]
+
+
+async def _get_opening_balances_for_fy(
+    db: aiosqlite.Connection, fy_start_date: str
+) -> list[dict]:
+    """Opening balance per account for cash-flow reports.
+
+    If no transaction exists before the FY start, the opening balance is
+    derived from the very first recorded transaction using:
+        opening = first_txn.balance - first_txn.credit + first_txn.debit
+    Falls back to 0 when the account has no transactions at all.
+    """
+    cursor = await db.execute("""
+        SELECT a.id, a.bank_name, a.account_name, a.account_number,
+            COALESCE(
+                (SELECT t.balance FROM bank_transactions t
+                 WHERE t.account_id = a.id AND t.txn_date < ?
+                 ORDER BY t.txn_date DESC, t.id DESC LIMIT 1),
+                COALESCE(
+                    (SELECT t.balance - t.credit + t.debit FROM bank_transactions t
+                     WHERE t.account_id = a.id
+                     ORDER BY t.txn_date ASC, t.id ASC LIMIT 1),
+                    0
+                )
+            ) AS balance
+        FROM bank_accounts a
+        WHERE a.is_active = 1
+        ORDER BY a.bank_name, a.account_name
+    """, (fy_start_date,))
     return [dict(r) for r in await cursor.fetchall()]
 
 
@@ -286,7 +316,7 @@ async def get_cash_flow(db: aiosqlite.Connection, fy_start: int) -> dict:
 
     net_change = round(net_operating + net_investing + net_financing, 2)
 
-    opening_balances = await _get_bank_balances_as_of(db, start_date)
+    opening_balances = await _get_opening_balances_for_fy(db, start_date)
     closing_balances = await _get_bank_balances_as_of(db, end_date)
     opening_cash = round(sum(b["balance"] for b in opening_balances), 2)
     closing_cash = round(sum(b["balance"] for b in closing_balances), 2)
