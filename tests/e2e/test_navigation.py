@@ -27,9 +27,9 @@ class TestNavigation:
         dashboard_link = page.locator('.app-sidebar-wrap a[href="/"]')
         assert "bg-primary" in dashboard_link.get_attribute("class")
 
-    def test_sidebar_manage_active_on_banks_manage(self, page_goto):
-        page = page_goto("/banks/manage")
-        manage_link = page.locator('a[href="/banks/manage"]')
+    def test_sidebar_accounts_active_on_banks_accounts(self, page_goto):
+        page = page_goto("/banks/accounts")
+        manage_link = page.locator('a[href="/banks/accounts"]')
         assert "bg-primary" in manage_link.get_attribute("class")
 
     def test_sidebar_transactions_active_on_transactions(self, page_goto):
@@ -49,9 +49,9 @@ class TestNavigation:
 
     def test_navigate_to_bank_accounts_via_sidebar(self, page_goto):
         page = page_goto("/")
-        page.locator('a[href="/banks/manage"]').click()
+        page.locator('a[href="/banks/accounts"]').click()
         page.wait_for_load_state("networkidle")
-        assert "/banks/manage" in page.url
+        assert "/banks/accounts" in page.url
         assert page.locator("h1").text_content() == "Bank Accounts"
 
     def test_navigate_to_transactions_via_sidebar(self, page_goto):

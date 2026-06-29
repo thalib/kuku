@@ -1,0 +1,60 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-3 p-xl-4">
+    <h1 class="h4 mb-3">Backup &amp; Restore</h1>
+
+    {% if error %}
+    <div class="alert alert-danger py-2">
+        <i class="bi bi-exclamation-circle me-1"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if stats %}
+    <div class="alert alert-success py-2">
+        <i class="bi bi-check-circle me-1"></i> Restore complete.
+        {% if stats.accounts_created > 0 %}<strong>{{ stats.accounts_created }}</strong> account(s) created.{% endif %}
+        {% if stats.categories_created > 0 %}<strong>{{ stats.categories_created }}</strong> category/categories created.{% endif %}
+        {% if stats.rules_created > 0 %}<strong>{{ stats.rules_created }}</strong> rule(s) created.{% endif %}
+        {% if stats.skipped.accounts > 0 %} {{ stats.skipped.accounts }} account(s) skipped (already exist).{% endif %}
+        {% if stats.skipped.categories > 0 %} {{ stats.skipped.categories }} category/categories skipped.{% endif %}
+        {% if stats.skipped.rules > 0 %} {{ stats.skipped.rules }} rule(s) skipped.{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="card-title mb-2"><i class="bi bi-download me-1"></i> Export Backup</h6>
+            <p class="text-muted small mb-2">
+                Downloads a JSON file containing all bank accounts, user categories, and classification rules.
+                Use this file to restore your configuration on a fresh database.
+            </p>
+            <a href="{{ root_path }}/backup/export" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Download Backup
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h6 class="card-title mb-2"><i class="bi bi-upload me-1"></i> Restore from Backup</h6>
+            <p class="text-muted small mb-2">
+                Upload a previously exported JSON file. Existing records are not overwritten;
+                only new records that do not already exist will be imported.
+            </p>
+            <form method="post" enctype="multipart/form-data" action="{{ root_path }}/backup/import">
+                <div class="row g-2 align-items-end">
+                    <div class="col-auto flex-grow-1">
+                        <input type="file" name="file" class="form-control form-control-sm" accept=".json" required>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-box-arrow-in-up me-1"></i> Restore
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

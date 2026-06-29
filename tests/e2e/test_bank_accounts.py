@@ -1,21 +1,21 @@
 class TestBankAccountsPage:
     def test_page_loads(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         assert "Bank Accounts" in page.locator("h1").text_content()
 
     def test_add_button_present(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         assert page.get_by_text("Add Bank Account").is_visible()
 
     def test_empty_state_shown(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         content = page.content()
         assert "No bank accounts" in content or "Bank Accounts" in content
 
 
 class TestBankAccountCreate:
     def test_add_form_opens_on_click(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.get_by_text("Add Bank Account").click()
         page.wait_for_load_state("networkidle")
         form = page.locator("#account-form-card form")
@@ -33,13 +33,13 @@ class TestBankAccountCreate:
             "notes": "",
         })
         assert resp.status_code == 200
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         assert "E2E Test Bank" in page.content()
         assert "E2E Account" in page.content()
         assert "****1111" in page.content()
 
     def test_create_account_via_form(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.get_by_text("Add Bank Account").click()
         page.wait_for_load_state("networkidle")
         form = page.locator("#account-form-card form")
@@ -63,7 +63,7 @@ class TestBankAccountEdit:
             "branch_name": "",
             "notes": "",
         })
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.locator('button[hx-get*="/edit"]').first.click()
         page.wait_for_load_state("networkidle")
         form = page.locator("#account-form-card form")
@@ -84,7 +84,7 @@ class TestBankAccountEdit:
         id_match = re.search(r'toggle/(\d+)|edit/(\d+)', resp.text)
         aid = id_match.group(1) or id_match.group(2) if id_match else "1"
 
-        html = page_goto("/banks/manage").content()
+        html = page_goto("/banks/accounts").content()
         import re as re2
         m = re2.search(rf'accounts/(\d+)/edit', html)
         if m:
@@ -99,7 +99,7 @@ class TestBankAccountEdit:
             "notes": "",
         })
         assert update_resp.status_code == 200
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         assert "Updated Bank Name" in page.content()
 
 
@@ -114,19 +114,19 @@ class TestBankAccountToggle:
             "notes": "",
         })
         import re
-        html = page_goto("/banks/manage").content()
+        html = page_goto("/banks/accounts").content()
         m = re.search(r'accounts/(\d+)/toggle', html)
         if m:
             aid = m.group(1)
             toggle_resp = api.patch(f"/banks/accounts/{aid}/toggle")
             assert toggle_resp.status_code == 200
-            page2 = page_goto("/banks/manage")
+            page2 = page_goto("/banks/accounts")
             assert "Toggle Account" in page2.content()
 
 
 class TestBankAccountCancelReopen:
     def test_cancel_then_add_reopens_form(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.evaluate('''() => {
             window._targetErrors = [];
             document.addEventListener("htmx:targetError", function(e) {
@@ -144,7 +144,7 @@ class TestBankAccountCancelReopen:
         assert page.evaluate("window._targetErrors") == []
 
     def test_close_button_then_reopens_form(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.evaluate('''() => {
             window._targetErrors = [];
             document.addEventListener("htmx:targetError", function(e) {
@@ -162,7 +162,7 @@ class TestBankAccountCancelReopen:
         assert page.evaluate("window._targetErrors") == []
 
     def test_multiple_cancel_add_cycles(self, page_goto):
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         page.evaluate('''() => {
             window._targetErrors = [];
             document.addEventListener("htmx:targetError", function(e) {
@@ -192,13 +192,13 @@ class TestBankAccountDelete:
             "notes": "",
         })
         import re
-        html = page_goto("/banks/manage").content()
+        html = page_goto("/banks/accounts").content()
         m = re.search(r'data-url="/banks/accounts/(\d+)"', html)
         if m:
             aid = m.group(1)
             del_resp = api.delete(f"/banks/accounts/{aid}")
             assert del_resp.status_code in (200, 204)
-            page2 = page_goto("/banks/manage")
+            page2 = page_goto("/banks/accounts")
             assert "Delete Account" not in page2.content()
 
     def test_delete_via_ui_confirm(self, page_goto, api):
@@ -211,12 +211,12 @@ class TestBankAccountDelete:
             "notes": "",
         })
         import re
-        page = page_goto("/banks/manage")
+        page = page_goto("/banks/accounts")
         row = page.locator("tr", has_text="UI Delete Account")
         m = re.search(r'data-url="/banks/accounts/(\d+)"', row.inner_html())
         assert m
         aid = m.group(1)
         del_resp = api.delete(f"/banks/accounts/{aid}")
         assert del_resp.status_code in (200, 204)
-        page2 = page_goto("/banks/manage")
+        page2 = page_goto("/banks/accounts")
         assert "UI Delete Account" not in page2.content()

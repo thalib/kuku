@@ -12,17 +12,17 @@ from app.utils.templates import templates
 router = APIRouter()
 
 
-@router.get("/manage", response_class=HTMLResponse)
-async def banks_manage(request: Request):
+@router.get("/accounts", response_class=HTMLResponse)
+async def banks_accounts(request: Request):
     db = await get_db()
     accounts = await bank_svc.list_accounts(db)
     return templates.TemplateResponse(
         request,
-        "pages/banks_manage.html",
+        "pages/banks_accounts.html",
         {
             "app_name": APP_NAME,
             "page_title": "Bank Accounts - Kuku",
-            "nav_groups": mark_active_nav(NAV_GROUPS, "/banks/manage"),
+            "nav_groups": mark_active_nav(NAV_GROUPS, "/banks/accounts"),
             "accounts": accounts,
         },
     )

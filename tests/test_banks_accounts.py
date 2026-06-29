@@ -40,17 +40,17 @@ async def _seed_account():
 
 class TestBanksManagePage:
     def test_get_returns_200(self, client):
-        assert client.get("/banks/manage").status_code == 200
+        assert client.get("/banks/accounts").status_code == 200
 
     def test_page_has_bank_accounts_heading(self, client):
-        assert "Bank Accounts" in client.get("/banks/manage").text
+        assert "Bank Accounts" in client.get("/banks/accounts").text
 
     def test_page_has_add_button(self, client):
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert "Add Bank Account" in body
 
     def test_empty_state_shown_when_no_user_accounts(self, client):
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert "Cash In Hand" in body
         assert "System" in body
 
@@ -98,7 +98,7 @@ class TestBanksManageDelete:
         account = _seed_account
         resp = client.delete(f"/banks/accounts/{account['id']}")
         assert resp.status_code in (200, 204)
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert account["account_name"] not in body
 
 
@@ -144,16 +144,16 @@ class TestBanksManageEdit:
 
 class TestBanksManageList:
     def test_list_shows_seeded_account(self, client, _seed_account):
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert "HDFC Bank" in body
         assert "Kuku Pvt Ltd" in body
 
     def test_list_has_table_structure(self, client, _seed_account):
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert "table-sm" in body
         assert "table-hover" in body
 
     def test_list_has_edit_and_delete_actions(self, client, _seed_account):
-        body = client.get("/banks/manage").text
+        body = client.get("/banks/accounts").text
         assert "bi-pencil" in body
         assert "bi-trash" in body

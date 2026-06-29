@@ -218,7 +218,7 @@ kuku/
 - Jinja2 blocks: `block content`, `block extra_head`, `block extra_scripts`
 - HTMX IDs: `#hx-*` prefix for HTMX-triggered elements
 - Test functions: `test_<what_is_being_tested>`
-- Route URLs: kebab-case (`/banks/manage`, `/purchase-orders`)
+- Route URLs: kebab-case (`/banks/accounts`, `/purchase-orders`)
 
 ## Security
 

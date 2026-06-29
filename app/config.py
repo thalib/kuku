@@ -26,7 +26,7 @@ NAV_GROUPS = [
     {
         "label": "BANKS",
         "links": [
-            {"name": "Manage", "url": "/banks/manage", "icon": "bi-bank"},
+            {"name": "Accounts", "url": "/banks/accounts", "icon": "bi-bank"},
             {"name": "Transaction", "url": "/banks/transactions", "icon": "bi-arrow-left-right"},
             {"name": "Categories", "url": "/banks/categories", "icon": "bi-tags"},
             {"name": "Rules", "url": "/banks/rules", "icon": "bi-funnel"},
@@ -38,6 +38,12 @@ NAV_GROUPS = [
             {"name": "Profit & Loss", "url": "/reports/profit-loss", "icon": "bi-graph-up"},
             {"name": "Balance Sheet", "url": "/reports/balance-sheet", "icon": "bi-file-earmark-bar-graph"},
             {"name": "Cash Flow", "url": "/reports/cash-flow", "icon": "bi-cash-stack"},
+        ],
+    },
+    {
+        "label": "ADMIN",
+        "links": [
+            {"name": "Backup", "url": "/backup", "icon": "bi-download"},
         ],
     },
 

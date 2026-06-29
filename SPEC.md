@@ -9,13 +9,14 @@
 | Group   | Link           | URL                          |
 |---------|----------------|------------------------------|
 |         | Dashboard      | /                            |
-| BANKS   | Manage         | /banks/manage                |
+| BANKS   | Accounts       | /banks/accounts              |
 | BANKS   | Transaction    | /banks/transactions          |
 | BANKS   | Categories     | /banks/categories            |
 | BANKS   | Rules          | /banks/rules                 |
 | REPORTS | Profit & Loss  | /reports/profit-loss         |
 | REPORTS | Balance Sheet  | /reports/balance-sheet       |
 | REPORTS | Cash Flow      | /reports/cash-flow           |
+| ADMIN   | Backup         | /backup                      |
 
 ### Configuration
 
@@ -185,9 +186,9 @@ The current reports are derived entirely from bank transaction imports and their
 | **Accrual adjustments** | P&L, Cash Flow | Reports are cash-basis (bank movements). Accrual adjustments (prepaid, outstanding) not supported |
 | **Inter-bank transfers** | Cash Flow | Transfers are excluded from reports, which is correct, but misclassification would skew cash flow |
 
-## Bank Accounts (Manage)
+## Bank Accounts
 
-**URL**: `/banks/manage`
+**URL**: `/banks/accounts`
 **Purpose**: Manage bank accounts belonging to the organisation. Activate / deactivate, add, delete. Transactions are managed separately at `/banks/transactions`.
 
 ### Fields
@@ -226,7 +227,7 @@ The current reports are derived entirely from bank transaction imports and their
 
 | Method   | URL                                | Purpose                         |
 |----------|------------------------------------|---------------------------------|
-| GET      | /banks/manage                      | Page                            |
+| GET      | /banks/accounts                    | Page                            |
 | GET      | /banks/accounts/form               | Add form partial                |
 | GET      | /banks/accounts/{id}/edit          | Edit form partial               |
 | POST     | /banks/accounts                    | Create (HTMX)                   |
@@ -546,3 +547,48 @@ Subclass of `BaseExporter`. Accepts `account`, `account_id`, `fy`, `calendar_yea
 4. Add templates under `app/templates/exports/<domain>/`.
 5. Export the class from `app/services/exports/__init__.py`.
 6. Wire up route handlers that instantiate the exporter and call render methods.
+
+## Backup & Restore
+
+**URL**: `/backup`
+**Purpose**: Export and import a single JSON file containing bank accounts, user categories, and classification rules. Allows quick reconfiguration on a fresh database without manually re-entering data.
+
+### Backup Format
+
+Single JSON file (`kuku-backup.json`) with the following structure:
+
+```json
+{
+  "version": 1,
+  "exported_at": "2026-06-29T12:00:00Z",
+  "bank_accounts": [...],
+  "categories": [...],
+  "rules": [...]
+}
+```
+
+| Section         | Included Records                                  |
+|-----------------|---------------------------------------------------|
+| bank_accounts   | All non-system accounts (user-created)            |
+| categories      | All non-system categories (user-created)          |
+| rules           | All classification rules (with category name+type references instead of IDs) |
+
+### Import Behaviour
+
+- **No destructive overwrites**: Existing records are never overwritten.
+- **Deduplication**: Records are matched by natural keys (bank accounts by `bank_name + account_name + account_number`; categories by `name + type`; rules by `search_text + match_type + category + priority`).
+- **Skip duplicates**: If a matching record already exists, it is skipped and counted in the response.
+- **Category remapping**: Rules reference categories by `name + type` instead of ID, so they resolve correctly on a different database.
+- **Transfer categories**: When a bank account is imported, its `to`/`from` transfer categories are automatically created.
+
+### Import Result Summary
+
+After a successful import, the page shows counts of created and skipped records per section.
+
+### Routes
+
+| Method | URL          | Purpose                         |
+|--------|--------------|---------------------------------|
+| GET    | /backup      | Backup & Restore page           |
+| GET    | /backup/export | Download backup JSON file     |
+| POST   | /backup/import | Upload and restore from JSON  |

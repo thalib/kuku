@@ -7,7 +7,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from app.config import APP_NAME, APP_ROOT_PATH
 from app.database import init_db, close_db
-from app.routers import bank_accounts, bank_transactions, categories, rules, dashboard, reports
+from app.routers import backup, bank_accounts, bank_transactions, categories, rules, dashboard, reports
 from app.utils.templates import templates
 import os
 
@@ -45,3 +45,4 @@ app.include_router(bank_transactions.router, prefix="/banks", tags=["Transaction
 app.include_router(categories.router, prefix="/banks", tags=["Categories"])
 app.include_router(rules.router, prefix="/banks", tags=["Rules"])
 app.include_router(reports.router, tags=["Reports"])
+app.include_router(backup.router, tags=["Backup"])
