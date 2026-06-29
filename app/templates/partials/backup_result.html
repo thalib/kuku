@@ -1,0 +1,78 @@
+{% set total_created = stats.accounts_created + stats.categories_created + stats.rules_created %}
+{% set total_skipped = stats.skipped.accounts + stats.skipped.categories + stats.skipped.rules %}
+{% set total_errors = stats.errors|length %}
+
+<div class="alert alert-{{ 'success' if total_errors == 0 else 'warning' }} py-2 mb-3">
+    <i class="bi bi-{{ 'check-circle' if total_errors == 0 else 'exclamation-triangle' }} me-1"></i>
+    <strong>Restore {{ 'complete' if total_errors == 0 else 'finished with warnings' }}.</strong>
+    {% if total_created > 0 %}
+        {{ total_created }} record(s) created.
+    {% endif %}
+    {% if total_skipped > 0 %}
+        {{ total_skipped }} record(s) skipped (already exist).
+    {% endif %}
+    {% if total_errors > 0 %}
+        {{ total_errors }} error(s) occurred.
+    {% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-light py-2">
+        <h6 class="mb-0"><i class="bi bi-clipboard-data me-1"></i> Import Summary</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead>
+                <tr class="text-muted small">
+                    <th>Section</th>
+                    <th class="text-center">Created</th>
+                    <th class="text-center">Skipped</th>
+                    <th class="text-center">Errors</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><i class="bi bi-bank me-1"></i> Bank Accounts</td>
+                    <td class="text-center">{{ stats.accounts_created }}</td>
+                    <td class="text-center">{{ stats.skipped.accounts }}</td>
+                    <td class="text-center">{{ stats.errors|selectattr("section", "equalto", "accounts")|list|length }}</td>
+                </tr>
+                <tr>
+                    <td><i class="bi bi-tags me-1"></i> Categories</td>
+                    <td class="text-center">{{ stats.categories_created }}</td>
+                    <td class="text-center">{{ stats.skipped.categories }}</td>
+                    <td class="text-center">{{ stats.errors|selectattr("section", "equalto", "categories")|list|length }}</td>
+                </tr>
+                <tr>
+                    <td><i class="bi bi-funnel me-1"></i> Rules</td>
+                    <td class="text-center">{{ stats.rules_created }}</td>
+                    <td class="text-center">{{ stats.skipped.rules }}</td>
+                    <td class="text-center">{{ stats.errors|selectattr("section", "equalto", "rules")|list|length }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if stats.errors %}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-light py-2">
+        <h6 class="mb-0 text-warning"><i class="bi bi-exclamation-triangle me-1"></i> Errors</h6>
+    </div>
+    <div class="card-body">
+        <ul class="mb-0 small">
+            {% for err in stats.errors %}
+            <li class="mb-1">
+                <strong>[{{ err.section }}]</strong> {{ err.record }}: {{ err.error }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<div class="d-flex gap-2 mb-3">
+    <a href="{{ root_path }}/backup" class="btn btn-outline-secondary btn-sm" hx-boost="false">
+        <i class="bi bi-arrow-left me-1"></i> Import Another Backup
+    </a>
+</div>

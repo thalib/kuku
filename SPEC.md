@@ -553,42 +553,82 @@ Subclass of `BaseExporter`. Accepts `account`, `account_id`, `fy`, `calendar_yea
 **URL**: `/backup`
 **Purpose**: Export and import a single JSON file containing bank accounts, user categories, and classification rules. Allows quick reconfiguration on a fresh database without manually re-entering data.
 
-### Backup Format
+### Backup JSON Schema (v2)
 
-Single JSON file (`kuku-backup.json`) with the following structure:
+Single JSON file (`kuku-backup.json`) with a two-section design: `metadata` (information about the backup itself) and `data` (the actual records). This separation makes the format easy to extend — adding a new data type is just a new key under `data`.
 
 ```json
 {
-  "version": 1,
-  "exported_at": "2026-06-29T12:00:00Z",
-  "bank_accounts": [...],
-  "categories": [...],
-  "rules": [...]
+  "version": 2,
+  "metadata": {
+    "created_at": "2026-06-29T12:00:00Z",
+    "created_by": "Kuku",
+    "app_version": "1.0",
+    "stats": {
+      "bank_accounts": 5,
+      "categories": 10,
+      "rules": 15
+    }
+  },
+  "data": {
+    "bank_accounts": [...],
+    "categories": [...],
+    "rules": [...]
+  }
 }
 ```
 
-| Section         | Included Records                                  |
-|-----------------|---------------------------------------------------|
-| bank_accounts   | All non-system accounts (user-created)            |
-| categories      | All non-system categories (user-created)          |
-| rules           | All classification rules (with category name+type references instead of IDs) |
+| Schema Key              | Type     | Purpose                                              |
+|-------------------------|----------|------------------------------------------------------|
+| version                 | int      | Format version. v1 (flat) and v2 (structured) supported. |
+| metadata.created_at     | string   | ISO 8601 UTC timestamp of when the backup was created |
+| metadata.created_by     | string   | App name that produced the backup                    |
+| metadata.app_version    | string   | App version at time of export                        |
+| metadata.stats          | object   | Record counts per section (for quick preview without parsing `data`) |
+| data.bank_accounts      | array    | All non-system accounts (user-created)               |
+| data.categories         | array    | All non-system categories (user-created)             |
+| data.rules              | array    | All classification rules (with category name+type references instead of IDs) |
+
+**Adding a new section**: To support backing up a new data type (e.g. users, settings), add a new key under `data`, update the exporter to include it, update the importer to handle it, and bump `version` if the schema changes.
+
+### Smart Analyze Step (Preview Before Import)
+
+Before importing, the backup file is analyzed against the current database. The analysis is shown as an interactive preview:
+
+- **Section toggles**: User can enable/disable each section (accounts, categories, rules) before importing.
+- **To Import**: Records that will be created (new records not already in the database).
+- **Already Exists**: Records skipped because a matching record already exists.
+- **Warnings**: Rules that reference categories not found in the current database. The analyzer suggests similar category names when possible.
+- **Empty file detection**: If the backup has zero records, an error is shown instead of the preview.
+- **All-already-exist detection**: If every record in the backup already exists, the user is informed that there is nothing to import.
 
 ### Import Behaviour
 
-- **No destructive overwrites**: Existing records are never overwritten.
-- **Deduplication**: Records are matched by natural keys (bank accounts by `bank_name + account_name + account_number`; categories by `name + type`; rules by `search_text + match_type + category + priority`).
-- **Skip duplicates**: If a matching record already exists, it is skipped and counted in the response.
+- **Two-step flow**: Upload → Analyze preview → Confirm Import. Prevents accidental imports.
+- **Token-based session**: After analysis, a short-lived token is generated and stored server-side. The confirm step uses this token (no need to re-upload the file). Token is consumed after one use.
+- **Non-destructive**: Existing records are never overwritten.
+- **Deduplication**: Records are matched by natural keys:
+  - Bank accounts: `bank_name + account_name + account_number`
+  - Categories: `name + type`
+  - Rules: `search_text + match_type + category_id + priority`
+- **Selective import**: User can choose which sections to import via checkboxes in the preview.
+- **Partial import**: If some records fail (e.g., constraint violation), others still import. Per-record errors are tracked and shown in the result.
 - **Category remapping**: Rules reference categories by `name + type` instead of ID, so they resolve correctly on a different database.
 - **Transfer categories**: When a bank account is imported, its `to`/`from` transfer categories are automatically created.
+- **Backward compatibility**: v1 (flat format: `{"version": 1, "exported_at": ..., "bank_accounts": [...]}`) is parsed and imported the same way as v2.
 
 ### Import Result Summary
 
-After a successful import, the page shows counts of created and skipped records per section.
+After import, a detailed summary is shown:
+- Per-section table: Created / Skipped / Errors counts
+- Error details: Per-record error messages for any records that failed to import
+- Option to import another backup
 
 ### Routes
 
-| Method | URL          | Purpose                         |
-|--------|--------------|---------------------------------|
-| GET    | /backup      | Backup & Restore page           |
-| GET    | /backup/export | Download backup JSON file     |
-| POST   | /backup/import | Upload and restore from JSON  |
+| Method | URL              | Purpose                                    |
+|--------|------------------|--------------------------------------------|
+| GET    | /backup          | Backup & Restore page                      |
+| GET    | /backup/export   | Download backup JSON file                  |
+| POST   | /backup/analyze  | Analyze backup file, return preview HTML (HTMX) |
+| POST   | /backup/import   | Confirm import using token, return result HTML (HTMX) |

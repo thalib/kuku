@@ -1,0 +1,148 @@
+{% macro section_row(label, icon, to_import, to_skip, section_key) %}
+<tr>
+    <td class="align-middle">
+        <div class="form-check">
+            <input class="form-check-input backup-section" type="checkbox" value="{{ section_key }}"
+                   id="sec-{{ section_key }}" checked>
+            <label class="form-check-label fw-medium" for="sec-{{ section_key }}">
+                <i class="bi {{ icon }} me-1"></i> {{ label }}
+            </label>
+        </div>
+    </td>
+    <td class="align-middle text-center">
+        <span class="badge bg-success-subtle text-success-emphasis">{{ to_import|length }}</span>
+    </td>
+    <td class="align-middle text-center">
+        <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ to_skip|length }}</span>
+    </td>
+</tr>
+{% endmacro %}
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-light py-2">
+        <h6 class="mb-0"><i class="bi bi-clipboard-check me-1"></i> Import Preview</h6>
+    </div>
+    <div class="card-body">
+        {% if analysis.stats.bank_accounts != None %}
+        <p class="text-muted small mb-3">
+            Backup created: <strong>{{ analysis.created_at }}</strong> (version {{ analysis.version }})
+        </p>
+        {% endif %}
+
+        {% if analysis.errors %}
+        <div class="alert alert-warning py-2 small mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>{{ analysis.errors|length }} warning(s):</strong>
+            <ul class="mb-0 mt-1 ps-3">
+                {% for err in analysis.errors %}
+                <li>{{ err.rule }} &mdash; {{ err.reason }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <table class="table table-sm align-middle mb-3">
+            <thead>
+                <tr class="text-muted small">
+                    <th>Section</th>
+                    <th class="text-center">To Import</th>
+                    <th class="text-center">Already Exists</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ section_row("Bank Accounts", "bi-bank", analysis.accounts_to_import, analysis.accounts_to_skip, "accounts") }}
+                {{ section_row("Categories", "bi-tags", analysis.categories_to_import, analysis.categories_to_skip, "categories") }}
+                {{ section_row("Classification Rules", "bi-funnel", analysis.rules_to_import, analysis.rules_to_skip, "rules") }}
+            </tbody>
+        </table>
+
+        <details class="mb-3">
+            <summary class="text-muted small">Records to import ({{ total_import }})</summary>
+            <div class="mt-2 small">
+                {% if analysis.accounts_to_import %}
+                <p class="mb-1 text-muted"><i class="bi bi-bank me-1"></i><strong>Accounts:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for a in analysis.accounts_to_import %}
+                    <li>{{ a.bank_name }} &mdash; {{ a.account_name }} ({{ a.account_number }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if analysis.categories_to_import %}
+                <p class="mb-1 text-muted"><i class="bi bi-tags me-1"></i><strong>Categories:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for c in analysis.categories_to_import %}
+                    <li>{{ c.name }} ({{ c.type }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if analysis.rules_to_import %}
+                <p class="mb-1 text-muted"><i class="bi bi-funnel me-1"></i><strong>Rules:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for r in analysis.rules_to_import %}
+                    <li>{{ r.search_text }} → {{ r.category }} (priority {{ r.priority }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </details>
+
+        {% if analysis.accounts_to_skip or analysis.categories_to_skip or analysis.rules_to_skip %}
+        <details class="mb-3">
+            <summary class="text-muted small">Already exists ({{ total_skip }})</summary>
+            <div class="mt-2 small">
+                {% if analysis.accounts_to_skip %}
+                <p class="mb-1 text-muted"><i class="bi bi-bank me-1"></i><strong>Accounts:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for s in analysis.accounts_to_skip %}
+                    <li>{{ s.bank_name }} &mdash; {{ s.account_name }} ({{ s.account_number }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if analysis.categories_to_skip %}
+                <p class="mb-1 text-muted"><i class="bi bi-tags me-1"></i><strong>Categories:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for s in analysis.categories_to_skip %}
+                    <li>{{ s.name }} ({{ s.type }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if analysis.rules_to_skip %}
+                <p class="mb-1 text-muted"><i class="bi bi-funnel me-1"></i><strong>Rules:</strong></p>
+                <ul class="ps-3 mb-2">
+                    {% for s in analysis.rules_to_skip %}
+                    <li>{{ s.search_text }} → {{ s.category }} (priority {{ s.priority }}) &mdash; {{ s.reason }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+
+        <form hx-post="{{ root_path }}/backup/import"
+              hx-target="#backup-result"
+              hx-swap="innerHTML"
+              hx-indicator="#backup-import-spinner">
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="sections" id="backup-sections" value="all">
+            <div class="d-flex align-items-center gap-2" id="backup-import-spinner">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-box-arrow-in-up me-1"></i> Confirm Import
+                </button>
+                <span class="htmx-indicator spinner-border spinner-border-sm text-primary"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function(){
+        var checkboxes = document.querySelectorAll('.backup-section');
+        var hiddenInput = document.getElementById('backup-sections');
+        function update() {
+            var checked = [];
+            checkboxes.forEach(function(cb) { if (cb.checked) checked.push(cb.value); });
+            hiddenInput.value = checked.length === checkboxes.length || checked.length === 0 ? 'all' : checked.join(',');
+        }
+        checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
+    })();
+</script>
