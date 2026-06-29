@@ -122,10 +122,29 @@ async def import_preview(request: Request, account_id: int = Form(...), file: Up
             request, "partials/tx_import_preview.html",
             {"error": "No valid transactions found in file.", "transactions": [], "account_id": account_id, "count": 0},
         )
+    
+    db = await get_db()
+    category_map = await tx_svc.get_category_name_map(db)
+    
+    unresolved_categories = set()
+    for txn in txns:
+        if "category" in txn and txn["category"]:
+            if txn["category"] not in category_map:
+                unresolved_categories.add(txn["category"])
+                txn["category_unresolved"] = True
+    
+    has_unresolved = len(unresolved_categories) > 0
 
     return templates.TemplateResponse(
         request, "partials/tx_import_preview.html",
-        {"transactions": txns, "account_id": account_id, "error": None, "count": len(txns)},
+        {
+            "transactions": txns,
+            "account_id": account_id,
+            "error": None,
+            "count": len(txns),
+            "has_categories": any("category" in t for t in txns),
+            "unresolved_categories": sorted(list(unresolved_categories)) if unresolved_categories else None,
+        },
     )
 
 
@@ -136,8 +155,32 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
         txns = json.loads(data)
     except json.JSONDecodeError:
         raise HTTPException(400, "Invalid transaction data")
-    cat_map = await tx_svc.get_uncategorized_category_ids(db)
-    count = await tx_svc.bulk_create_transactions(db, account_id, txns, cat_map)
+    
+    uncategorized_ids = await tx_svc.get_uncategorized_category_ids(db)
+    category_map = await tx_svc.get_category_name_map(db)
+    
+    unresolved_categories = set()
+    for txn in txns:
+        if "category" in txn and txn["category"]:
+            if txn["category"] in category_map:
+                txn["category_id"] = category_map[txn["category"]]
+            else:
+                unresolved_categories.add(txn["category"])
+                if txn.get("debit", 0) > 0 and txn.get("credit", 0) == 0:
+                    txn["category_id"] = uncategorized_ids.get("Expense")
+                elif txn.get("credit", 0) > 0 and txn.get("debit", 0) == 0:
+                    txn["category_id"] = uncategorized_ids.get("Income")
+                else:
+                    txn["category_id"] = None
+        else:
+            if txn.get("debit", 0) > 0 and txn.get("credit", 0) == 0:
+                txn["category_id"] = uncategorized_ids.get("Expense")
+            elif txn.get("credit", 0) > 0 and txn.get("debit", 0) == 0:
+                txn["category_id"] = uncategorized_ids.get("Income")
+            else:
+                txn["category_id"] = None
+    
+    count = await tx_svc.bulk_create_transactions(db, account_id, txns)
 
     dates = [t["txn_date"] for t in txns if t.get("txn_date")]
     if dates:
@@ -148,10 +191,12 @@ async def import_confirm(request: Request, account_id: int = Form(...), data: st
         now = date.today()
         fy, month = tx_svc.date_to_fy_start(now.year, now.month), now.month
 
+    resp_data = {"fy": fy, "month": month, "count": count}
+    if unresolved_categories:
+        resp_data["unresolved_categories"] = sorted(list(unresolved_categories))
+    
     resp = HTMLResponse("")
-    resp.headers["HX-Trigger"] = json.dumps({
-        "txImported": {"fy": fy, "month": month, "count": count}
-    })
+    resp.headers["HX-Trigger"] = json.dumps({"txImported": resp_data})
     return resp
 
 

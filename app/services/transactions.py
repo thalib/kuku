@@ -58,6 +58,15 @@ def _parse_date_str(val: str) -> date:
     raise ValueError(f"Cannot parse date: {val}")
 
 
+def _find_header_row(all_rows: list[list[str]], max_scan: int = 40) -> int:
+    date_headers = {"date", "txn date", "txndate", "transaction date", "txn_date"}
+    for i, row in enumerate(all_rows[:max_scan]):
+        lower = [c.strip().lower() for c in row]
+        if any(h in date_headers for h in lower):
+            return i
+    return 0
+
+
 def _detect_format(headers: list[str]) -> dict[str, int]:
     lower = [h.strip().lower() for h in headers]
     mapping = {}
@@ -74,6 +83,8 @@ def _detect_format(headers: list[str]) -> dict[str, int]:
     crdr_indices = [i for i, h in enumerate(lower) if h in ("cr/dr", "transaction type", "type")]
     amount_indices = [i for i, h in enumerate(lower) if h in ("amount (inr)", "amount", "amount(rupees)")]
 
+    category_indices = [i for i, h in enumerate(lower) if h == "category"]
+
     if date_indices:
         mapping["txn_date"] = date_indices[0]
     if value_dt_indices:
@@ -82,6 +93,8 @@ def _detect_format(headers: list[str]) -> dict[str, int]:
         mapping["narration"] = narration_indices[0]
     if ref_indices:
         mapping["reference"] = ref_indices[0]
+    if category_indices:
+        mapping["category"] = category_indices[0]
 
     if withdrawal_indices and deposit_indices:
         mapping["type"] = "dual"
@@ -148,9 +161,10 @@ def parse_excel_bytes(data: bytes, filename: str) -> list[dict]:
     if len(raw_rows) < 2:
         return []
 
-    headers = raw_rows[0]
+    header_idx = _find_header_row(raw_rows)
+    headers = raw_rows[header_idx]
     mapping = _detect_format(headers)
-    return _map_rows(raw_rows[1:], mapping)
+    return _map_rows(raw_rows[header_idx + 1:], mapping)
 
 
 def _parse_csv(content: str) -> list[dict]:
@@ -162,9 +176,10 @@ def _parse_csv(content: str) -> list[dict]:
     if len(all_rows) < 2:
         return []
 
-    headers = all_rows[0]
+    header_idx = _find_header_row(all_rows)
+    headers = all_rows[header_idx]
     mapping = _detect_format(headers)
-    return _map_rows(all_rows[1:], mapping)
+    return _map_rows(all_rows[header_idx + 1:], mapping)
 
 
 def _map_rows(raw_rows: list[list[str]], mapping: dict[str, int]) -> list[dict]:
@@ -202,7 +217,7 @@ def _map_rows(raw_rows: list[list[str]], mapping: dict[str, int]) -> list[dict]:
 
         balance = _parse_amount(_row_at(row, mapping.get("balance")))
 
-        results.append({
+        txn_dict: dict = {
             "txn_date": txn_date.isoformat(),
             "value_date": value_date.isoformat(),
             "narration": narration or "",
@@ -210,7 +225,14 @@ def _map_rows(raw_rows: list[list[str]], mapping: dict[str, int]) -> list[dict]:
             "debit": round(debit, 2),
             "credit": round(credit, 2),
             "balance": round(balance, 2),
-        })
+        }
+
+        if "category" in mapping:
+            cat_raw = _row_at(row, mapping["category"])
+            if cat_raw:
+                txn_dict["category"] = cat_raw
+
+        results.append(txn_dict)
 
     return results
 
@@ -236,23 +258,19 @@ async def create_transaction(db: aiosqlite.Connection, data: TransactionCreate) 
 
 
 async def bulk_create_transactions(
-    db: aiosqlite.Connection, account_id: int, txns: list[dict], category_map: dict | None = None
+    db: aiosqlite.Connection, account_id: int, txns: list[dict]
 ) -> int:
     now = _now()
     rows = []
+    
     for t in txns:
-        cat_id = None
-        if category_map:
-            if t.get("debit", 0) > 0 and t.get("credit", 0) == 0:
-                cat_id = category_map.get("Expense")
-            elif t.get("credit", 0) > 0 and t.get("debit", 0) == 0:
-                cat_id = category_map.get("Income")
         rows.append((
             account_id, t["txn_date"], t["value_date"],
             t.get("narration", ""), t.get("reference", ""),
             t.get("debit", 0), t.get("credit", 0),
-            t.get("balance", 0), cat_id, now, now,
+            t.get("balance", 0), t.get("category_id"), now, now,
         ))
+    
     await db.executemany(
         """INSERT INTO bank_transactions
            (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id, created_at, updated_at)
@@ -491,6 +509,17 @@ async def get_uncategorized_category_ids(db: aiosqlite.Connection) -> dict[str, 
     result = {}
     for row in await cursor.fetchall():
         result[row["type"]] = row["id"]
+    return result
+
+
+async def get_category_name_map(db: aiosqlite.Connection) -> dict[str, int]:
+    cursor = await db.execute(
+        "SELECT id, name, type FROM transaction_categories"
+    )
+    result = {}
+    for row in await cursor.fetchall():
+        display_name = f"{row['type']}:{row['name']}"
+        result[display_name] = row["id"]
     return result
 
 

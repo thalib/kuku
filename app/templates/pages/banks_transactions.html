@@ -473,11 +473,21 @@
         var detail = (e.detail && e.detail.value) ? e.detail.value : {};
         var count = detail.count || '?';
         var alertDiv = document.getElementById('hx-import-alert');
-        alertDiv.innerHTML =
-            '<div class="alert alert-success py-2 small alert-dismissible fade show mb-3" role="alert">' +
-            '<i class="bi bi-check-circle me-1"></i> ' + count + ' transactions imported successfully.' +
-            '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
-        setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
+        
+        var alertHtml = '<div class="alert alert-' + (detail.unresolved_categories ? 'warning' : 'success') + 
+                        ' py-2 small alert-dismissible fade show mb-3" role="alert">';
+        
+        if (detail.unresolved_categories && detail.unresolved_categories.length > 0) {
+            alertHtml += '<i class="bi bi-exclamation-triangle-fill me-1"></i> ' + count + ' transactions imported. ' +
+                         detail.unresolved_categories.length + ' categor' + (detail.unresolved_categories.length == 1 ? 'y' : 'ies') + 
+                         ' not found and mapped to Uncategorized: ' + detail.unresolved_categories.join(', ');
+        } else {
+            alertHtml += '<i class="bi bi-check-circle me-1"></i> ' + count + ' transactions imported successfully.';
+        }
+        alertHtml += '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+        
+        alertDiv.innerHTML = alertHtml;
+        setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 8000);
         htmx.ajax('GET',
             '/banks/transactions/filters?account_id='+sel.value+
                 (detail.fy ? '&selected_fy='+detail.fy : '')+

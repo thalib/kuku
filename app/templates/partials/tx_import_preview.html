@@ -13,6 +13,18 @@
 {% elif transactions %}
 <div>
     <span class="modal-title-label d-none">Preview — {{ count }} transactions</span>
+    {% if has_categories and unresolved_categories %}
+        <div class="alert alert-warning py-2 small mb-2">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong>{{ unresolved_categories|length }}</strong> categor{{ 'y' if unresolved_categories|length == 1 else 'ies' }} not found
+            and will be mapped to Uncategorized: {{ unresolved_categories|join(', ') }}
+        </div>
+    {% elif has_categories %}
+        <div class="alert alert-info py-2 small mb-2">
+            <i class="bi bi-check-circle me-1"></i>
+            All categories matched successfully.
+        </div>
+    {% endif %}
     <div class="small text-muted mb-2">{{ count }} transactions parsed from file — review before importing.</div>
     <div class="card border-0 shadow-sm mb-0">
         <div class="table-responsive" style="max-height:60vh">
@@ -22,6 +34,9 @@
                         <th class="ps-3" style="width:40px">#</th>
                         <th style="width:90px">Date</th>
                         <th>Narration</th>
+                        {% if has_categories %}
+                        <th style="width:140px">Category</th>
+                        {% endif %}
                         <th style="width:120px">Reference</th>
                         <th class="text-end" style="width:100px">Debit</th>
                         <th class="text-end" style="width:100px">Credit</th>
@@ -34,6 +49,19 @@
                         <td class="ps-3 small text-muted">{{ loop.index }}</td>
                         <td class="small text-nowrap">{{ t["txn_date"] }}</td>
                         <td class="small" style="max-width:300px"><span class="d-inline-block text-truncate" style="max-width:300px" title="{{ t['narration'] }}">{{ t["narration"] or "-" }}</span></td>
+                        {% if has_categories %}
+                        <td class="small">
+                            {% if t.get("category") %}
+                                {% if t.get("category_unresolved") %}
+                                    <span class="badge bg-warning text-dark" title="Will be mapped to Uncategorized">{{ t["category"] }}</span>
+                                {% else %}
+                                    <span class="badge bg-success">{{ t["category"] }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                         <td class="small text-muted">{{ t["reference"] or "-" }}</td>
                         <td class="text-end text-danger small">{{ "{:,.2f}".format(t["debit"]) if t["debit"] else "" }}</td>
                         <td class="text-end text-success small">{{ "{:,.2f}".format(t["credit"]) if t["credit"] else "" }}</td>

@@ -162,10 +162,12 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - **Dual-column** (e.g. HDFC): `Withdrawal Amt.` + `Deposit Amt.` columns
 - **Single-column** (e.g. IDBI): `Amount (INR)` + `CR/DR` indicator column
 - Supports CSV, XLS, XLSX
+- **Kuku export files**: Can reimport exported CSV/XLSX files; parser auto-detects header rows and extracts Category column
 
 ### Categorisation
 
 - Every imported transaction is auto-classified as `EXPENSE:Uncategorized Expense` (debit > 0) or `INCOME:Uncategorized Income` (credit > 0) by default.
+- **Kuku export reimport**: When a Kuku export file is imported, categories from the file are recognized and mapped to the correct category IDs. Unmapped categories are mapped to Uncategorized and the user is informed which categories were not found.
 - The `Category` column displays a unified **searchable select widget** for every transaction. Users type to filter (full-text search by category name and type), then click or use keyboard (Up/Down/Enter/Escape) to pick a category. No separate search input and select dropdown — it's one widget.
 - When any category is changed, a global **Save / Cancel** bar appears above the table. Changed rows are highlighted with a yellow left border.
 - **Save**: fires a PATCH per changed row, then reloads the table and removes the dirty row highlights.
@@ -193,6 +195,8 @@ Table name: `bank_accounts`. Created by `init_db()`.
 - Reference: shown inline below narration as `(REF: <value>)` in `text-muted` small font. The `(REF: )` line is omitted entirely when the reference is empty.
 - Actions per row: Edit (inline form via HTMX, textarea for narration), Delete (security modal — type `DELETE` to confirm)
 - Import: file upload → preview (in modal dialog) → confirm → bulk insert
+  - Preview shows Category column when categories are present in the file
+  - Unmapped categories are shown with a warning alert and highlighted in the preview table
 - After successful import, filters and table auto-refresh to the imported FY/month
 - Export: CSV, Excel (xlsx), PDF
   - All exports include: header (company name, bank name, period), transaction table, and summary footer
