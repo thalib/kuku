@@ -151,13 +151,23 @@ class TestDashboardContentWithData:
 
 class TestComingSoonPages:
 
-    def test_reports_returns_200(self, client):
-        assert client.get("/reports").status_code == 200
+    def test_reports_redirects_to_profit_loss(self, client):
+        resp = client.get("/reports", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == "/reports/profit-loss"
 
-    def test_reports_shows_coming_soon(self, client):
-        body = client.get("/reports").text
-        assert "Coming soon" in body
-        assert "Reports" in body
+    def test_profit_loss_page_returns_200(self, client):
+        assert client.get("/reports/profit-loss").status_code == 200
+
+    def test_balance_sheet_page_returns_200(self, client):
+        assert client.get("/reports/balance-sheet").status_code == 200
+
+    def test_cash_flow_page_returns_200(self, client):
+        assert client.get("/reports/cash-flow").status_code == 200
+
+    def test_reports_require_fy(self, client):
+        resp = client.get("/reports/profit-loss/content")
+        assert resp.status_code == 422
 
     def test_dashboard_coming_soon_not_shown(self, client):
         assert "Coming soon" not in client.get("/").text

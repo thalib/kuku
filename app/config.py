@@ -31,7 +31,9 @@ NAV_GROUPS = [
     {
         "label": "REPORTS",
         "links": [
-            {"name": "Reports", "url": "/reports", "icon": "bi-bar-chart"},
+            {"name": "Profit & Loss", "url": "/reports/profit-loss", "icon": "bi-graph-up"},
+            {"name": "Balance Sheet", "url": "/reports/balance-sheet", "icon": "bi-file-earmark-bar-graph"},
+            {"name": "Cash Flow", "url": "/reports/cash-flow", "icon": "bi-cash-stack"},
         ],
     },
 

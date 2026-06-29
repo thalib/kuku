@@ -77,10 +77,10 @@ class TestNavigation:
 
     def test_navigate_to_reports(self, page_goto):
         page = page_goto("/")
-        page.locator('a[href="/reports"]').click()
+        page.locator('a[href="/reports/profit-loss"]').click()
         page.wait_for_load_state("networkidle")
-        assert "/reports" in page.url
-        assert "Reports" in page.locator("h1").text_content()
+        assert "/reports/profit-loss" in page.url
+        assert "Profit" in page.content()
 
     def test_sidebar_group_labels_present(self, page_goto):
         page = page_goto("/")

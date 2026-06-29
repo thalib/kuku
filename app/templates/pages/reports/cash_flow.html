@@ -1,0 +1,67 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="container-fluid p-3 p-xl-4" id="report-container">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <form class="d-flex flex-wrap align-items-center gap-2"
+              hx-get="/reports/cash-flow/content" hx-target="#report-root" hx-swap="outerHTML"
+              onsubmit="return showReportProgress()">
+            <label class="fw-semibold small text-nowrap">Financial Year:</label>
+            <select name="fy" class="form-select form-select-sm" style="width:auto">
+                <option value="">Select FY</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary" id="btn-generate">
+                <i class="bi bi-play-circle me-1"></i>Generate Report
+            </button>
+        </form>
+    </div>
+    <div class="progress mb-3 d-none" id="report-progress" style="height:4px">
+        <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width:100%"></div>
+    </div>
+    <div id="report-root">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-cash-stack fs-1 text-muted d-block mb-3"></i>
+                <h6 class="text-muted">Cash Flow Statement</h6>
+                <p class="text-muted small mb-0">Select a Financial Year and click <strong>Generate Report</strong>.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function(){
+    fetch('/reports/fy-years').then(function(r){ return r.json(); }).then(function(d){
+        var sel = document.querySelector('#report-container select[name="fy"]');
+        if (!sel) return;
+        (d.fy_years || []).reverse().forEach(function(y){
+            var opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = 'FY ' + y + '-' + (y + 1);
+            sel.appendChild(opt);
+        });
+    });
+    window.showReportProgress = function(){
+        var sel = document.querySelector('#report-container select[name="fy"]');
+        if (!sel || !sel.value) return false;
+        document.getElementById('report-progress').classList.remove('d-none');
+        var btn = document.getElementById('btn-generate');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating&hellip;';
+        return true;
+    };
+    document.addEventListener('htmx:afterSwap', function(e){
+        if (e.detail.target.id !== 'report-root') return;
+        document.getElementById('report-progress').classList.add('d-none');
+        var btn = document.getElementById('btn-generate');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-circle me-1"></i>Generate Report';
+    });
+    document.addEventListener('htmx:afterRequest', function(e){
+        if (e.detail.elt.closest && e.detail.elt.closest('#report-container')) {
+            document.getElementById('report-progress').classList.add('d-none');
+            var btn = document.getElementById('btn-generate');
+            if (btn && btn.disabled) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-circle me-1"></i>Generate Report'; }
+        }
+    });
+})();
+</script>
+{% endblock %}

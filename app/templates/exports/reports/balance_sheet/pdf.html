@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    @page {
+        size: A4 portrait;
+        margin: 1.2cm 1cm 1.5cm 1cm;
+        @frame footer {
+            -pdf-frame-content: footerContent;
+            bottom: 0.1cm;
+            margin-left: 1cm;
+            margin-right: 1cm;
+            height: 0.5cm;
+        }
+    }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #333; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .header .company { font-size: 14pt; font-weight: bold; }
+    .header .title { font-size: 11pt; font-weight: bold; margin-top: 2px; }
+    .header .period { font-size: 9pt; color: #666; margin-top: 2px; }
+    table.report {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 6px;
+        margin-bottom: 8px;
+    }
+    table.report th {
+        background-color: #343a40;
+        color: #fff;
+        font-size: 9pt;
+        padding: 4px 3px;
+        border: 0.5pt solid #343a40;
+    }
+    table.report td {
+        font-size: 9pt;
+        padding: 3px;
+        border-bottom: 0.3pt solid #ccc;
+    }
+    .left-col { width: 50%; vertical-align: top; padding: 6px; }
+    .right-col { width: 50%; vertical-align: top; padding: 6px; border-left: 0.3pt solid #ccc; }
+    .particular { padding-left: 6px; }
+    .particular-indent { padding-left: 18px; }
+    .amount { text-align: right; width: 90px; }
+    .section-header { background-color: #f0f0f0; font-weight: bold; }
+    .subtotal { font-weight: bold; border-top: 0.5pt solid #333; }
+    .grand-total { font-weight: bold; font-size: 10pt; background-color: #343a40; color: #fff; }
+    .balanced { text-align: center; font-size: 8pt; color: #198754; margin-top: 4px; }
+    .footer { text-align: center; font-size: 7pt; color: #777; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="company">{{ company_name }}</div>
+    <div class="title">Balance Sheet</div>
+    <div class="period">As on {{ data["as_on"] }}</div>
+</div>
+
+<table class="report">
+    <thead>
+        <tr>
+            <th style="text-align:left">ASSETS</th>
+            <th style="text-align:right; width:90px">Amount (&#8377;)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if data["bank_balances"] %}
+        <tr class="section-header">
+            <td class="particular" colspan="2">Cash &amp; Bank Balances</td>
+        </tr>
+        {% for b in data["bank_balances"] %}
+        <tr>
+            <td class="particular-indent">{{ b["bank_name"] }} - {{ b["account_name"] }} ({{ b["account_number"][-4:] }})</td>
+            <td class="amount">{{ "{:,.2f}".format(b["balance"]) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="subtotal">
+            <td class="particular">Total Cash &amp; Bank</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_cash_at_bank"]) }}</td>
+        </tr>
+        {% endif %}
+
+        {% if data["other_assets"] %}
+        <tr class="section-header">
+            <td class="particular" colspan="2">Other Assets</td>
+        </tr>
+        {% for item in data["other_assets"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="subtotal">
+            <td class="particular">Total Other Assets</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_other_assets"]) }}</td>
+        </tr>
+        {% endif %}
+
+        <tr class="grand-total">
+            <td class="particular">TOTAL ASSETS</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_assets"]) }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<table class="report">
+    <thead>
+        <tr>
+            <th style="text-align:left">LIABILITIES &amp; EQUITY</th>
+            <th style="text-align:right; width:90px">Amount (&#8377;)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="section-header">
+            <td class="particular" colspan="2">LIABILITIES</td>
+        </tr>
+        {% if data["liabilities"] %}
+        {% for item in data["liabilities"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr><td class="particular-indent">No liabilities</td><td class="amount">0.00</td></tr>
+        {% endif %}
+        <tr class="subtotal">
+            <td class="particular">Total Liabilities</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_liabilities"]) }}</td>
+        </tr>
+
+        <tr class="section-header">
+            <td class="particular" colspan="2">EQUITY</td>
+        </tr>
+        {% if data["equity_items"] %}
+        {% for item in data["equity_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr><td class="particular-indent">No equity</td><td class="amount">0.00</td></tr>
+        {% endif %}
+        <tr class="subtotal">
+            <td class="particular">Total Equity</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_equity"]) }}</td>
+        </tr>
+
+        <tr class="grand-total">
+            <td class="particular">TOTAL LIABILITIES &amp; EQUITY</td>
+            <td class="amount">{{ "{:,.2f}".format(data["total_liabilities_equity"]) }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{% if data["is_balanced"] %}
+<div class="balanced">Balance Sheet is balanced</div>
+{% endif %}
+
+<div id="footerContent" class="footer">
+    Generated by Kuku &mdash; Page <pdf:pagenumber/> of <pdf:pagecount/>
+</div>
+
+</body>
+</html>

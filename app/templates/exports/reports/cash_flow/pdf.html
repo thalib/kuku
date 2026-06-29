@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    @page {
+        size: A4 portrait;
+        margin: 1.2cm 1cm 1.5cm 1cm;
+        @frame footer {
+            -pdf-frame-content: footerContent;
+            bottom: 0.1cm;
+            margin-left: 1cm;
+            margin-right: 1cm;
+            height: 0.5cm;
+        }
+    }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #333; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .header .company { font-size: 14pt; font-weight: bold; }
+    .header .title { font-size: 11pt; font-weight: bold; margin-top: 2px; }
+    .header .period { font-size: 9pt; color: #666; margin-top: 2px; }
+    table.report {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 6px;
+    }
+    table.report th {
+        background-color: #343a40;
+        color: #fff;
+        font-size: 9pt;
+        padding: 4px 3px;
+        border: 0.5pt solid #343a40;
+    }
+    table.report td {
+        font-size: 9pt;
+        padding: 3px;
+        border-bottom: 0.3pt solid #ccc;
+    }
+    .particular { padding-left: 6px; }
+    .particular-indent { padding-left: 18px; }
+    .sub-header { padding-left: 14px; font-weight: bold; font-size: 8pt; color: #666; }
+    .amount { text-align: right; width: 90px; }
+    .section-header { background-color: #f0f0f0; font-weight: bold; }
+    .subtotal { font-weight: bold; border-top: 0.5pt solid #333; }
+    .grand-total { font-weight: bold; font-size: 10pt; background-color: #343a40; color: #fff; }
+    .summary-table { margin-top: 10px; border-collapse: collapse; width: 100%; }
+    .summary-table td { font-size: 9pt; padding: 3px 6px; border: 0.3pt solid #ccc; }
+    .summary-table .label { font-weight: bold; width: 33%; }
+    .summary-table .value { text-align: right; }
+    .footer { text-align: center; font-size: 7pt; color: #777; }
+    .positive { color: #198754; }
+    .negative { color: #dc3545; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="company">{{ company_name }}</div>
+    <div class="title">Cash Flow Statement</div>
+    <div class="period">For the period {{ data["period_from"] }} to {{ data["period_to"] }}</div>
+</div>
+
+<table class="report">
+    <thead>
+        <tr>
+            <th style="text-align:left">Particulars</th>
+            <th style="text-align:right; width:90px">Amount (&#8377;)</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        <tr class="section-header">
+            <td class="particular" colspan="2">A. CASH FLOW FROM OPERATING ACTIVITIES</td>
+        </tr>
+        {% if data["operating_inflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Inflows</td></tr>
+        {% for item in data["operating_inflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount positive">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if data["operating_outflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Outflows</td></tr>
+        {% for item in data["operating_outflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">({{ "{:,.2f}".format(item["amount"]) }})</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if not data["operating_inflow_items"] and not data["operating_outflow_items"] %}
+        <tr><td class="particular-indent">No operating activities</td><td class="amount">0.00</td></tr>
+        {% endif %}
+        <tr class="subtotal">
+            <td class="particular">Net from Operating (A)</td>
+            <td class="amount">{{ "{:,.2f}".format(data["net_operating"]) }}</td>
+        </tr>
+
+        <tr class="section-header">
+            <td class="particular" colspan="2">B. CASH FLOW FROM INVESTING ACTIVITIES</td>
+        </tr>
+        {% if data["investing_outflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Outflows (Asset Purchases)</td></tr>
+        {% for item in data["investing_outflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">({{ "{:,.2f}".format(item["amount"]) }})</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if data["investing_inflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Inflows (Asset Disposals)</td></tr>
+        {% for item in data["investing_inflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount positive">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if not data["investing_outflow_items"] and not data["investing_inflow_items"] %}
+        <tr><td class="particular-indent">No investing activities</td><td class="amount">0.00</td></tr>
+        {% endif %}
+        <tr class="subtotal">
+            <td class="particular">Net from Investing (B)</td>
+            <td class="amount">{{ "{:,.2f}".format(data["net_investing"]) }}</td>
+        </tr>
+
+        <tr class="section-header">
+            <td class="particular" colspan="2">C. CASH FLOW FROM FINANCING ACTIVITIES</td>
+        </tr>
+        {% if data["financing_inflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Inflows</td></tr>
+        {% for item in data["financing_inflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount positive">{{ "{:,.2f}".format(item["amount"]) }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if data["financing_outflow_items"] %}
+        <tr><td class="sub-header" colspan="2">Outflows</td></tr>
+        {% for item in data["financing_outflow_items"] %}
+        <tr>
+            <td class="particular-indent">{{ item["name"] }}</td>
+            <td class="amount">({{ "{:,.2f}".format(item["amount"]) }})</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+        {% if not data["financing_inflow_items"] and not data["financing_outflow_items"] %}
+        <tr><td class="particular-indent">No financing activities</td><td class="amount">0.00</td></tr>
+        {% endif %}
+        <tr class="subtotal">
+            <td class="particular">Net from Financing (C)</td>
+            <td class="amount">{{ "{:,.2f}".format(data["net_financing"]) }}</td>
+        </tr>
+
+        <tr class="grand-total">
+            <td class="particular">NET CASH FLOW (A + B + C)</td>
+            <td class="amount">{{ "{:,.2f}".format(data["net_change"]) }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<table class="summary-table">
+    <tr>
+        <td class="label">Opening Cash</td>
+        <td class="value">{{ "{:,.2f}".format(data["opening_cash"]) }}</td>
+        <td class="label">Closing Cash</td>
+        <td class="value">{{ "{:,.2f}".format(data["closing_cash"]) }}</td>
+    </tr>
+</table>
+
+{% if data["bank_balances"] %}
+<table class="report" style="margin-top:10px">
+    <thead>
+        <tr>
+            <th style="text-align:left">Closing Cash by Account</th>
+            <th style="text-align:right; width:90px">Balance (&#8377;)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for b in data["bank_balances"] %}
+        <tr>
+            <td class="particular-indent">{{ b["bank_name"] }} - {{ b["account_name"] }} ({{ b["account_number"][-4:] }})</td>
+            <td class="amount">{{ "{:,.2f}".format(b["balance"]) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="grand-total">
+            <td class="particular">Total</td>
+            <td class="amount">{{ "{:,.2f}".format(data["closing_cash"]) }}</td>
+        </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<div id="footerContent" class="footer">
+    Generated by Kuku &mdash; Page <pdf:pagenumber/> of <pdf:pagecount/>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,153 @@
+{% macro fmt(val) %}{{ "{:,.2f}".format(val) }}{% endmacro %}
+
+<div id="report-root">
+
+    <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
+        <a href="{{ pdf_url }}" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center py-2 border-bottom">
+            <h5 class="fw-bold mb-0">{{ company_name }}</h5>
+            <h6 class="text-muted mb-1">{{ report_name }}</h6>
+            <small class="text-muted">As on {{ data["as_on"] }}</small>
+        </div>
+        <div class="card-body py-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr class="border-bottom border-2 border-dark">
+                        <th class="bg-dark text-white" colspan="2">ASSETS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if data["bank_balances"] %}
+                    <tr class="bg-primary-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">Cash &amp; Bank Balances</td>
+                    </tr>
+                    {% for b in data["bank_balances"] %}
+                    <tr>
+                        <td class="ps-4">{{ b["bank_name"] }} - {{ b["account_name"] }} <span class="text-muted small">({{ b["account_number"][-4:] }})</span></td>
+                        <td class="text-end" style="width:160px">{{ fmt(b["balance"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="fw-semibold border-top">
+                        <td class="ps-3">Total Cash &amp; Bank</td>
+                        <td class="text-end">{{ fmt(data["total_cash_at_bank"]) }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% if data["other_assets"] %}
+                    <tr class="bg-primary-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">Other Assets</td>
+                    </tr>
+                    {% for item in data["other_assets"] %}
+                    <tr>
+                        <td class="ps-4">{{ item["name"] }}</td>
+                        <td class="text-end">{{ fmt(item["amount"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="fw-semibold border-top">
+                        <td class="ps-3">Total Other Assets</td>
+                        <td class="text-end">{{ fmt(data["total_other_assets"]) }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% if not data["bank_balances"] and not data["other_assets"] %}
+                    <tr><td class="ps-4 text-muted fst-italic" colspan="2">No assets recorded</td></tr>
+                    {% endif %}
+
+                    <tr class="fw-bold border-top border-3 bg-primary-subtle">
+                        <td class="ps-3">TOTAL ASSETS</td>
+                        <td class="text-end">{{ fmt(data["total_assets"]) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-0">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr class="border-bottom border-2 border-dark">
+                                <th class="bg-dark text-white" colspan="2">LIABILITIES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if data["liabilities"] %}
+                            {% for item in data["liabilities"] %}
+                            <tr>
+                                <td class="ps-4">{{ item["name"] }}</td>
+                                <td class="text-end" style="width:140px">{{ fmt(item["amount"]) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr><td class="ps-4 text-muted fst-italic" colspan="2">No liabilities</td></tr>
+                            {% endif %}
+                            <tr class="fw-bold border-top border-dark bg-warning-subtle">
+                                <td class="ps-3">Total Liabilities</td>
+                                <td class="text-end">{{ fmt(data["total_liabilities"]) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-0">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr class="border-bottom border-2 border-dark">
+                                <th class="bg-dark text-white" colspan="2">EQUITY</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if data["equity_items"] %}
+                            {% for item in data["equity_items"] %}
+                            <tr>
+                                <td class="ps-4">{{ item["name"] }}</td>
+                                <td class="text-end" style="width:140px">{{ fmt(item["amount"]) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr><td class="ps-4 text-muted fst-italic" colspan="2">No equity</td></tr>
+                            {% endif %}
+                            <tr class="fw-bold border-top border-dark bg-info-subtle">
+                                <td class="ps-3">Total Equity</td>
+                                <td class="text-end">{{ fmt(data["total_equity"]) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-0">
+            <table class="table table-sm mb-0">
+                <tbody>
+                    <tr class="fw-bold border-top border-3 bg-dark text-white">
+                        <td class="ps-3 py-2">TOTAL LIABILITIES &amp; EQUITY</td>
+                        <td class="text-end py-2" style="width:160px">{{ fmt(data["total_liabilities_equity"]) }}</td>
+                    </tr>
+                    {% if data["is_balanced"] %}
+                    <tr class="bg-success-subtle">
+                        <td colspan="2" class="text-center py-2 small"><i class="bi bi-check-circle-fill text-success me-1"></i>Balanced</td>
+                    </tr>
+                    {% else %}
+                    <tr class="bg-warning-subtle">
+                        <td colspan="2" class="text-center py-2 small"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Not balanced (diff: {{ "{:,.2f}".format((data["total_assets"] - data["total_liabilities_equity"])|abs) }})</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

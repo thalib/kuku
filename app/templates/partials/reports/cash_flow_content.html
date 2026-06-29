@@ -1,0 +1,161 @@
+{% macro fmt(val) %}{{ "{:,.2f}".format(val) }}{% endmacro %}
+
+<div id="report-root">
+
+    <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
+        <a href="{{ pdf_url }}" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center py-2 border-bottom">
+            <h5 class="fw-bold mb-0">{{ company_name }}</h5>
+            <h6 class="text-muted mb-1">{{ report_name }}</h6>
+            <small class="text-muted">For the period {{ data["period_from"] }} to {{ data["period_to"] }}</small>
+        </div>
+        <div class="card-body py-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr class="border-bottom border-2 border-dark">
+                        <th class="bg-dark text-white ps-3">Particulars</th>
+                        <th class="bg-dark text-white text-end" style="width:160px">Amount(&#8377;)</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    <tr class="bg-success-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">A. CASH FLOW FROM OPERATING ACTIVITIES</td>
+                    </tr>
+                    {% if data["operating_inflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Inflows</small></td></tr>
+                    {% for item in data["operating_inflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-success">{{ fmt(item["amount"]) }}</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if data["operating_outflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Outflows</small></td></tr>
+                    {% for item in data["operating_outflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-danger">({{ fmt(item["amount"]) }})</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if not data["operating_inflow_items"] and not data["operating_outflow_items"] %}
+                    <tr><td class="ps-4 text-muted fst-italic" colspan="2">No operating activities</td></tr>
+                    {% endif %}
+                    <tr class="fw-bold border-top border-dark {% if data['net_operating'] >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                        <td class="ps-3">Net from Operating (A)</td>
+                        <td class="text-end">{{ fmt(data["net_operating"]) }}</td>
+                    </tr>
+
+                    <tr class="bg-primary-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">B. CASH FLOW FROM INVESTING ACTIVITIES</td>
+                    </tr>
+                    {% if data["investing_outflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Outflows (Asset Purchases)</small></td></tr>
+                    {% for item in data["investing_outflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-danger">({{ fmt(item["amount"]) }})</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if data["investing_inflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Inflows (Asset Disposals)</small></td></tr>
+                    {% for item in data["investing_inflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-success">{{ fmt(item["amount"]) }}</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if not data["investing_outflow_items"] and not data["investing_inflow_items"] %}
+                    <tr><td class="ps-4 text-muted fst-italic" colspan="2">No investing activities</td></tr>
+                    {% endif %}
+                    <tr class="fw-bold border-top border-dark {% if data['net_investing'] >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                        <td class="ps-3">Net from Investing (B)</td>
+                        <td class="text-end">{{ fmt(data["net_investing"]) }}</td>
+                    </tr>
+
+                    <tr class="bg-info-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">C. CASH FLOW FROM FINANCING ACTIVITIES</td>
+                    </tr>
+                    {% if data["financing_inflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Inflows</small></td></tr>
+                    {% for item in data["financing_inflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-success">{{ fmt(item["amount"]) }}</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if data["financing_outflow_items"] %}
+                    <tr class="bg-light"><td colspan="2"><small class="ps-4 fw-semibold">Outflows</small></td></tr>
+                    {% for item in data["financing_outflow_items"] %}
+                    <tr><td class="ps-4">{{ item["name"] }}</td><td class="text-end text-danger">({{ fmt(item["amount"]) }})</td></tr>
+                    {% endfor %}
+                    {% endif %}
+                    {% if not data["financing_inflow_items"] and not data["financing_outflow_items"] %}
+                    <tr><td class="ps-4 text-muted fst-italic" colspan="2">No financing activities</td></tr>
+                    {% endif %}
+                    <tr class="fw-bold border-top border-dark {% if data['net_financing'] >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                        <td class="ps-3">Net from Financing (C)</td>
+                        <td class="text-end">{{ fmt(data["net_financing"]) }}</td>
+                    </tr>
+
+                    <tr class="border-top border-3">
+                        <td class="ps-3 fw-bold fs-6 py-3">NET CASH FLOW (A + B + C)</td>
+                        <td class="text-end fw-bold fs-6 py-3 {% if data['net_change'] >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ fmt(data["net_change"]) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3 text-center">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Opening Cash</div>
+                    <div class="h5 mb-0">{{ fmt(data["opening_cash"]) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3 text-center">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Net Change</div>
+                    <div class="h5 mb-0 {% if data['net_change'] >= 0 %}text-success{% else %}text-danger{% endif %}">{{ fmt(data["net_change"]) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3 text-center">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Closing Cash</div>
+                    <div class="h5 mb-0">{{ fmt(data["closing_cash"]) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if data["bank_balances"] %}
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr class="border-bottom border-2 border-dark">
+                        <th class="bg-dark text-white ps-3">Closing Cash by Account</th>
+                        <th class="bg-dark text-white text-end" style="width:160px">Balance(&#8377;)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in data["bank_balances"] %}
+                    <tr>
+                        <td class="ps-4">{{ b["bank_name"] }} - {{ b["account_name"] }} <span class="text-muted small">({{ b["account_number"][-4:] }})</span></td>
+                        <td class="text-end">{{ fmt(b["balance"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="fw-bold border-top border-dark bg-dark text-white">
+                        <td class="ps-3">Total</td>
+                        <td class="text-end">{{ fmt(data["closing_cash"]) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>

@@ -1,0 +1,77 @@
+{% macro fmt(val) %}{{ "{:,.2f}".format(val) }}{% endmacro %}
+
+<div id="report-root">
+
+    <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
+        <a href="{{ pdf_url }}" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center py-2 border-bottom">
+            <h5 class="fw-bold mb-0">{{ company_name }}</h5>
+            <h6 class="text-muted mb-1">{{ report_name }}</h6>
+            <small class="text-muted">For the period {{ data["period_from"] }} to {{ data["period_to"] }}</small>
+        </div>
+        <div class="card-body py-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr class="border-bottom border-2 border-dark">
+                        <th class="bg-dark text-white text-start ps-3">Particulars</th>
+                        <th class="bg-dark text-white text-end" style="width:160px">Amount(&#8377;)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="bg-success-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">INCOME</td>
+                    </tr>
+                    {% for item in data["income_categories"] %}
+                    <tr>
+                        <td class="ps-4">{{ item["name"] }}</td>
+                        <td class="text-end">{{ fmt(item["amount"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not data["income_categories"] %}
+                    <tr><td class="ps-4 text-muted fst-italic">No income recorded</td><td class="text-end">0.00</td></tr>
+                    {% endif %}
+                    <tr class="fw-bold border-top border-dark">
+                        <td class="ps-3">Total Income</td>
+                        <td class="text-end">{{ fmt(data["total_income"]) }}</td>
+                    </tr>
+
+                    <tr class="bg-danger-subtle">
+                        <td class="fw-semibold ps-3" colspan="2">EXPENSES</td>
+                    </tr>
+                    {% for item in data["expense_categories"] %}
+                    <tr>
+                        <td class="ps-4">{{ item["name"] }}</td>
+                        <td class="text-end">{{ fmt(item["amount"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not data["expense_categories"] %}
+                    <tr><td class="ps-4 text-muted fst-italic">No expenses recorded</td><td class="text-end">0.00</td></tr>
+                    {% endif %}
+                    <tr class="fw-bold border-top border-dark">
+                        <td class="ps-3">Total Expenses</td>
+                        <td class="text-end">{{ fmt(data["total_expense"]) }}</td>
+                    </tr>
+
+                    <tr class="border-top border-3">
+                        <td class="ps-3 fw-bold fs-6 py-3 {% if data['is_profit'] %}text-success{% else %}text-danger{% endif %}">
+                            {% if data["is_profit"] %}
+                            <i class="bi bi-arrow-up-circle me-1"></i>NET PROFIT
+                            {% else %}
+                            <i class="bi bi-arrow-down-circle me-1"></i>NET LOSS
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold fs-6 py-3 {% if data['is_profit'] %}text-success{% else %}text-danger{% endif %}">
+                            {{ fmt(data["net_profit"]) }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

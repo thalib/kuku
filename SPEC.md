@@ -6,14 +6,16 @@
 
 ### Sidebar Navigation Groups
 
-| Group   | Link         | URL                      |
-|---------|--------------|--------------------------|
-|         | Dashboard    | /                        |
-| BANKS   | Manage       | /banks/manage            |
-| BANKS   | Transaction  | /banks/transactions      |
-| BANKS   | Categories   | /banks/categories        |
-| BANKS   | Rules        | /banks/rules             |
-| REPORTS | Reports      | /reports                 |
+| Group   | Link           | URL                          |
+|---------|----------------|------------------------------|
+|         | Dashboard      | /                            |
+| BANKS   | Manage         | /banks/manage                |
+| BANKS   | Transaction    | /banks/transactions          |
+| BANKS   | Categories     | /banks/categories            |
+| BANKS   | Rules          | /banks/rules                 |
+| REPORTS | Profit & Loss  | /reports/profit-loss         |
+| REPORTS | Balance Sheet  | /reports/balance-sheet       |
+| REPORTS | Cash Flow      | /reports/cash-flow           |
 
 ### Configuration
 
@@ -83,6 +85,104 @@ Charts rendered with Chart.js 4 (CDN). Three charts below the summary/table:
 |--------|----------------------------------|---------------------------------|
 | GET    | /                                | Full dashboard page             |
 | GET    | /content?fy=&month=              | Dashboard content partial (HTMX)|
+
+## Reports
+
+Three financial reports generated on demand from transaction and category data. Indian accounting standards (ICAI) format.
+
+### On-Demand Generation Flow
+
+1. User opens report page — no data loaded, shows empty state with FY selector
+2. FY dropdown populated via `/reports/fy-years` (lightweight JSON, no report computed)
+3. User selects Financial Year, clicks **Generate Report**
+4. Progress bar (animated Bootstrap `.progress-bar`) appears; button shows spinner
+5. HTMX `GET /reports/<report>/content?fy=<year>` returns the report HTML
+6. Report rendered in-place; progress bar hidden; button re-enabled
+7. **Download PDF** button appears in the report header
+
+### Profit & Loss Account
+
+**URL**: `/reports/profit-loss`
+**Purpose**: Income vs Expense summary for the selected FY. Shows Net Profit or Net Loss.
+
+- Header: company name, "Profit and Loss", period (Apr 1 to Mar 31)
+- Income section: all Income-type categories with total credits
+- Expense section: all Expense-type categories with total debits
+- Net Profit/Loss: total income minus total expenses
+- Transfers excluded (internal movements, not income/expense)
+
+### Balance Sheet
+
+**URL**: `/reports/balance-sheet`
+**Purpose**: Snapshot of Assets, Liabilities, and Equity at the end of the FY.
+
+- Header: company name, "Balance Sheet", "As on" date (end of FY)
+- Assets: Cash & Bank balances (from latest transaction per account), other Asset-type categories (debit minus credit)
+- Liabilities: Liability-type categories (credit minus debit)
+- Equity: Equity-type categories (credit minus debit) + cumulative Retained Earnings
+- Balance check: shows ✅ if Assets = Liabilities + Equity, ⚠️ with difference amount if not
+
+### Cash Flow Statement
+
+**URL**: `/reports/cash-flow`
+**Purpose**: Movement of cash categorized by Operating, Investing, and Financing activities per Ind AS 7.
+
+- Operating: Income (inflows) and Expenses (outflows)
+- Investing: Asset category debits (purchases) and credits (disposals)
+- Financing: Liability and Equity credits (inflows like loans/capital) and debits (outflows like repayments/drawings)
+- Net cash flow = Operating + Investing + Financing
+- Summary cards: Opening Cash (bank balance at FY start), Net Change, Closing Cash (bank balance at FY end)
+- Closing Cash by Account table
+
+### Financial Year
+
+- Follows Indian FY: April to March. Parameter uses start year (`fy=2025` → FY 2025-26).
+- FY dropdown is populated on page load from actual transaction data.
+
+### PDF Export
+
+Each report has a PDF export reusing the xhtml2pdf pattern from Bank Transactions:
+- Template: `app/templates/exports/reports/<report>/pdf.html`
+- A4 portrait, company header, period label, styled report tables, "Page X of Y" footer
+
+### Modular Architecture
+
+- **Service**: `app/services/reports.py` — pure computation from transactions/categories
+  - `get_profit_loss(db, fy_start)` → income/expense categories and net profit
+  - `get_balance_sheet(db, fy_start)` → assets, liabilities, equity, balance check
+  - `get_cash_flow(db, fy_start)` → operating/investing/financing cash flows
+  - `get_report_fy_years(db)` → available FY years
+- **Router**: `app/routers/reports.py` — page routes, content (HTMX) routes, PDF streams, FY years JSON
+
+### Routes
+
+| Method | URL                                | Purpose                          |
+|--------|------------------------------------|----------------------------------|
+| GET    | /reports                           | Redirect → /reports/profit-loss   |
+| GET    | /reports/fy-years                  | Available FY years (JSON)         |
+| GET    | /reports/profit-loss               | P&L page                          |
+| GET    | /reports/profit-loss/content?fy=   | P&L content (HTMX)                |
+| GET    | /reports/profit-loss/pdf?fy=       | P&L PDF download                  |
+| GET    | /reports/balance-sheet             | Balance Sheet page                |
+| GET    | /reports/balance-sheet/content?fy= | Balance Sheet content (HTMX)      |
+| GET    | /reports/balance-sheet/pdf?fy=     | Balance Sheet PDF download        |
+| GET    | /reports/cash-flow                 | Cash Flow page                    |
+| GET    | /reports/cash-flow/content?fy=     | Cash Flow content (HTMX)          |
+| GET    | /reports/cash-flow/pdf?fy=         | Cash Flow PDF download            |
+
+### Data Improvements for Report Accuracy
+
+The current reports are derived entirely from bank transaction imports and their category classifications. To improve accuracy beyond bank-level data, the following additional data sources could be integrated in future:
+
+| Data Source | Reports Affected | Current Limitation |
+|-------------|-----------------|-------------------|
+| **Cash in hand** | Balance Sheet, Cash Flow | Only bank balances tracked; physical cash not captured |
+| **Accounts receivable / payable** | Balance Sheet, Cash Flow | Outstanding invoices not tracked (no AR/AP module) |
+| **Fixed asset register** | Balance Sheet, P&L (Depreciation) | Asset purchases via bank are categorized but no depreciation schedule |
+| **Inventory valuation** | Balance Sheet | Inventory transactions via bank visible but stock value not tracked |
+| **Loans breakdown** | Balance Sheet | Loan amounts visible as categories but no principal vs interest split |
+| **Accrual adjustments** | P&L, Cash Flow | Reports are cash-basis (bank movements). Accrual adjustments (prepaid, outstanding) not supported |
+| **Inter-bank transfers** | Cash Flow | Transfers are excluded from reports, which is correct, but misclassification would skew cash flow |
 
 ## Bank Accounts (Manage)
 
@@ -395,7 +495,11 @@ app/services/exports/
 app/templates/exports/
 ├── transactions/
 │   └── pdf.html         # Jinja2 HTML template rendered by xhtml2pdf
-└── (future domains: reports/, invoices/, etc.)
+├── reports/
+│   ├── profit_loss/pdf.html
+│   ├── balance_sheet/pdf.html
+│   └── cash_flow/pdf.html
+└── invoices/            # (future)
 ```
 
 ### BaseExporter
