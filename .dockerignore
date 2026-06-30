@@ -24,6 +24,5 @@ sample
 AGENTS.md
 README.md
 SPEC.md
-.gitignore
-.pytest_cache
 .venv
+.env.example
