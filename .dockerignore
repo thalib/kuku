@@ -21,3 +21,9 @@ run_*.sh
 Dockerfile
 .dockerignore
 sample
+AGENTS.md
+README.md
+SPEC.md
+.gitignore
+.pytest_cache
+.venv
