@@ -1,28 +1,25 @@
-# --- Stage 1: Build dependencies ---
-FROM ghcr.io/astral-sh/uv:python3.11-alpine AS builder
+FROM python:3.11-slim AS builder
+
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1
+
+RUN pip install --no-cache-dir uv
+
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev
 
-# --- Stage 2: Minimal Runtime ---
-FROM python:3.11-alpine AS runner
+FROM python:3.11-slim
+
 WORKDIR /app
-
-# FIX: Create appuser AND the data directory, then grant permissions
-RUN adduser -D appuser && \
-    mkdir -p /app/data && \
-    chown -R appuser:appuser /app
 
 COPY --from=builder /app/.venv /app/.venv
-COPY --chown=appuser:appuser ./app ./app
 
-ENV APP_HOST=0.0.0.0 \
-    APP_PORT=8000 \
-    APP_ROOT_PATH="" \
-    PATH="/app/.venv/bin:$PATH"
+COPY . .
+
+ENV APP_HOST=0.0.0.0
+ENV APP_PORT=8000
+ENV APP_ROOT_PATH=
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
-USER appuser
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 ${APP_ROOT_PATH:+--root-path $APP_ROOT_PATH}"]
