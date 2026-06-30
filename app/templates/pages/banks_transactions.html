@@ -481,7 +481,7 @@
         if (importModal) importModal.hide();
         var sel = document.getElementById('selAccount');
         if (!sel || !sel.value) return;
-        var detail = (e.detail && e.detail.value) ? e.detail.value : {};
+        var detail = (e.detail && typeof e.detail.value !== 'undefined') ? e.detail.value : (e.detail || {});
         var count = detail.count || 0;
         var skipped = detail.skipped || 0;
         var alertDiv = document.getElementById('hx-import-alert');
