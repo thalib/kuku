@@ -10,6 +10,7 @@
                         <th scope="col">Match Type</th>
                         <th scope="col">Category</th>
                         <th scope="col" style="width: 110px;">Applies To</th>
+                        <th scope="col" style="width: 150px;">Account</th>
                         <th scope="col" style="width: 100px;">Status</th>
                         <th scope="col" class="text-end" style="width: 140px;">Actions</th>
                     </tr>
@@ -40,6 +41,18 @@
                         </td>
                         <td>
                             <span class="badge bg-secondary-subtle text-secondary border rounded-pill">{{ r['applies_to']|capitalize }}</span>
+                        </td>
+                        <td>
+                            {% if r['account_id'] %}
+                                {% set acc = accounts | selectattr("id", "equalto", r["account_id"]) | list | first %}
+                                {% if acc %}
+                                <span class="badge bg-warning-subtle text-warning border rounded-pill">{{ acc['bank_name'] }} - {{ acc['account_name'] }}</span>
+                                {% else %}
+                                <span class="text-muted">Unknown</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="badge bg-success-subtle text-success border rounded-pill">All Accounts</span>
+                            {% endif %}
                         </td>
                         <td>
                             <div class="form-check form-switch">

@@ -17,9 +17,9 @@ async def create_rule(db: aiosqlite.Connection, data: RuleCreate) -> dict:
     now = _now()
     cursor = await db.execute(
         """INSERT INTO classification_rules
-           (search_text, match_type, category_id, priority, applies_to, is_active, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (data.search_text, data.match_type, data.category_id, data.priority, data.applies_to, 1 if data.is_active else 0, now, now),
+           (search_text, match_type, category_id, priority, applies_to, is_active, account_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (data.search_text, data.match_type, data.category_id, data.priority, data.applies_to, 1 if data.is_active else 0, data.account_id, now, now),
     )
     await db.commit()
     return await get_rule(db, cursor.lastrowid)
@@ -49,8 +49,24 @@ async def update_rule(db: aiosqlite.Connection, rule_id: int, data: RuleUpdate) 
                 vals.append(1 if val else 0)
             else:
                 vals.append(val)
+    if data.account_id is not None:
+        sets.append("account_id = ?")
+        vals.append(data.account_id)
+    elif hasattr(data, "_clear_account_id") and data._clear_account_id:
+        sets.append("account_id = NULL")
     if not sets:
         return await get_rule(db, rule_id)
+    sets.append("updated_at = ?")
+    vals.append(_now())
+    vals.append(rule_id)
+    cursor = await db.execute(
+        f"UPDATE classification_rules SET {', '.join(sets)} WHERE id = ?",
+        vals,
+    )
+    await db.commit()
+    if cursor.rowcount == 0:
+        return None
+    return await get_rule(db, rule_id)
     sets.append("updated_at = ?")
     vals.append(_now())
     vals.append(rule_id)

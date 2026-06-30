@@ -565,7 +565,7 @@ async def apply_rules_to_transactions(db: aiosqlite.Connection, account_id: int,
         end_date = f"{year:04d}-{month + 1:02d}-01"
 
     rules = await rule_svc.list_rules(db)
-    active_rules = [r for r in rules if r["is_active"]]
+    active_rules = [r for r in rules if r["is_active"] and (r.get("account_id") is None or r.get("account_id") == account_id)]
     if not active_rules:
         return 0
 

@@ -36,6 +36,24 @@ async def _seed_category():
 
 
 @pytest_asyncio.fixture()
+async def _seed_account():
+    from app.services.bank_accounts import create_account
+    from app.database import get_db
+    from app.models.bank_accounts import BankAccountCreate
+    db = await get_db()
+    return await create_account(
+        db,
+        BankAccountCreate(
+            bank_name="Test Bank",
+            account_name="Test Account",
+            account_number="123456789",
+            ifsc_code="TEST0001",
+            branch_name="Test Branch",
+        ),
+    )
+
+
+@pytest_asyncio.fixture()
 async def _seed_rule(_seed_category):
     from app.services.rules import create_rule
     from app.database import get_db
@@ -50,6 +68,26 @@ async def _seed_rule(_seed_category):
             priority=1,
             applies_to="both",
             is_active=True,
+        ),
+    )
+
+
+@pytest_asyncio.fixture()
+async def _seed_account_rule(_seed_category, _seed_account):
+    from app.services.rules import create_rule
+    from app.database import get_db
+    from app.models.rules import RuleCreate
+    db = await get_db()
+    return await create_rule(
+        db,
+        RuleCreate(
+            search_text="UPI",
+            match_type="contains",
+            category_id=_seed_category["id"],
+            priority=1,
+            applies_to="both",
+            is_active=True,
+            account_id=_seed_account["id"],
         ),
     )
 
@@ -76,6 +114,7 @@ class TestRulesAdd:
         assert "search_text" in resp.text
         assert "match_type" in resp.text
         assert "category_id" in resp.text
+        assert "account_id" in resp.text
 
     def test_create_rule_appends_to_list(self, client, _seed_category):
         payload = {
@@ -117,6 +156,37 @@ class TestRulesAdd:
         assert resp.status_code == 200
         assert "Invalid input" in resp.text
 
+    def test_create_rule_with_account_id(self, client, _seed_category, _seed_account):
+        payload = {
+            "search_text": "UPI",
+            "match_type": "contains",
+            "category_id": str(_seed_category["id"]),
+            "priority": "0",
+            "applies_to": "both",
+            "is_active": "on",
+            "account_id": str(_seed_account["id"]),
+        }
+        resp = client.post("/banks/rules", data=payload)
+        assert resp.status_code == 200
+        body = resp.text
+        assert "UPI" in body
+        assert _seed_account["bank_name"] in body
+
+    def test_create_rule_without_account_id(self, client, _seed_category):
+        payload = {
+            "search_text": "NEFT",
+            "match_type": "contains",
+            "category_id": str(_seed_category["id"]),
+            "priority": "0",
+            "applies_to": "both",
+            "is_active": "on",
+        }
+        resp = client.post("/banks/rules", data=payload)
+        assert resp.status_code == 200
+        body = resp.text
+        assert "NEFT" in body
+        assert "All Accounts" in body
+
 
 class TestRulesEdit:
     def test_edit_form_endpoint_returns_form(self, client, _seed_rule):
@@ -151,6 +221,37 @@ class TestRulesEdit:
         }
         resp = client.post("/banks/rules/99999/update", data=payload)
         assert resp.status_code == 404
+
+    def test_update_rule_with_account_id(self, client, _seed_rule, _seed_account):
+        rule = _seed_rule
+        payload = {
+            "search_text": rule["search_text"],
+            "match_type": rule["match_type"],
+            "category_id": str(rule["category_id"]),
+            "priority": str(rule["priority"]),
+            "applies_to": rule.get("applies_to", "both"),
+            "is_active": "on",
+            "account_id": str(_seed_account["id"]),
+        }
+        resp = client.post(f"/banks/rules/{rule['id']}/update", data=payload)
+        assert resp.status_code == 200
+        body = client.get("/banks/rules").text
+        assert _seed_account["bank_name"] in body
+
+    def test_update_rule_remove_account_id(self, client, _seed_account_rule, _seed_account):
+        rule = _seed_account_rule
+        payload = {
+            "search_text": rule["search_text"],
+            "match_type": rule["match_type"],
+            "category_id": str(rule["category_id"]),
+            "priority": str(rule["priority"]),
+            "applies_to": rule.get("applies_to", "both"),
+            "is_active": "on",
+        }
+        resp = client.post(f"/banks/rules/{rule['id']}/update", data=payload)
+        assert resp.status_code == 200
+        body = client.get("/banks/rules").text
+        assert "All Accounts" in body
 
 
 class TestRulesDelete:
@@ -233,3 +334,12 @@ class TestRulesList:
         await toggle_rule(db, _seed_rule["id"])
         body = client.get("/banks/rules").text
         assert _seed_rule["search_text"] in body
+
+    async def test_rule_shows_all_accounts_when_no_account_id(self, client, _seed_rule):
+        body = client.get("/banks/rules").text
+        assert "All Accounts" in body
+
+    async def test_rule_shows_specific_account(self, client, _seed_account_rule, _seed_account):
+        body = client.get("/banks/rules").text
+        assert _seed_account["bank_name"] in body
+        assert _seed_account["account_name"] in body

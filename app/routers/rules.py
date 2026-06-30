@@ -6,6 +6,7 @@ from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import categories as cat_svc
 from app.services import rules as rule_svc
+from app.services import bank_accounts as acc_svc
 from app.models.rules import RuleCreate, RuleUpdate
 from app.utils.nav import mark_active_nav
 from app.utils.templates import templates
@@ -26,9 +27,11 @@ async def rules_page(request: Request):
     db = await get_db()
     rules = await rule_svc.list_rules(db)
     categories = await cat_svc.list_categories(db)
+    accounts = await acc_svc.list_accounts(db)
     ctx = _base_ctx(request)
     ctx["rules"] = rules
     ctx["categories"] = categories
+    ctx["accounts"] = accounts
     return templates.TemplateResponse(request, "pages/banks_rules.html", ctx)
 
 
@@ -36,9 +39,10 @@ async def rules_page(request: Request):
 async def rule_form(request: Request):
     db = await get_db()
     categories = await cat_svc.list_categories(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
         request, "partials/rule_form.html",
-        {"app_name": APP_NAME, "categories": categories},
+        {"app_name": APP_NAME, "categories": categories, "accounts": accounts},
     )
 
 
@@ -54,9 +58,10 @@ async def rule_edit_form(request: Request, rule_id: int):
     if not rule:
         raise HTTPException(404)
     categories = await cat_svc.list_categories(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
         request, "partials/rule_form.html",
-        {"app_name": APP_NAME, "rule": rule, "categories": categories},
+        {"app_name": APP_NAME, "rule": rule, "categories": categories, "accounts": accounts},
     )
 
 
@@ -69,6 +74,7 @@ async def rule_create(
     priority: str = Form("0"),
     applies_to: str = Form("both"),
     is_active: str = Form("on"),
+    account_id: str = Form(""),
 ):
     try:
         data = RuleCreate(
@@ -78,6 +84,7 @@ async def rule_create(
             priority=int(priority) if priority else 0,
             applies_to=applies_to,
             is_active=(is_active == "on"),
+            account_id=int(account_id) if account_id else None,
         )
     except (ValidationError, ValueError):
         return templates.TemplateResponse(
@@ -85,6 +92,7 @@ async def rule_create(
             {
                 "app_name": APP_NAME,
                 "categories": await cat_svc.list_categories(await get_db()),
+                "accounts": await acc_svc.list_accounts(await get_db()),
                 "errors": ["Invalid input. Please check all required fields."],
                 "form_search_text": search_text,
                 "form_match_type": match_type,
@@ -92,13 +100,15 @@ async def rule_create(
                 "form_priority": priority,
                 "form_applies_to": applies_to,
                 "form_is_active": (is_active == "on"),
+                "form_account_id": account_id,
             },
         )
     db = await get_db()
     await rule_svc.create_rule(db, data)
     rules = await rule_svc.list_rules(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
-        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db)}
+        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db), "accounts": accounts}
     )
 
 
@@ -112,6 +122,7 @@ async def rule_update(
     priority: str = Form("0"),
     applies_to: str = Form("both"),
     is_active: str = Form("on"),
+    account_id: str = Form(""),
 ):
     try:
         data = RuleUpdate(
@@ -121,7 +132,10 @@ async def rule_update(
             priority=int(priority) if priority else 0,
             applies_to=applies_to,
             is_active=(is_active == "on"),
+            account_id=int(account_id) if account_id else None,
         )
+        if not account_id:
+            data._clear_account_id = True
     except (ValueError, ValidationError):
         raise HTTPException(400, "Invalid input")
     db = await get_db()
@@ -129,8 +143,9 @@ async def rule_update(
     if not updated:
         raise HTTPException(404)
     rules = await rule_svc.list_rules(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
-        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db)}
+        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db), "accounts": accounts}
     )
 
 
@@ -141,8 +156,9 @@ async def rule_toggle(request: Request, rule_id: int):
     if not updated:
         raise HTTPException(404)
     rules = await rule_svc.list_rules(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
-        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db)}
+        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db), "accounts": accounts}
     )
 
 
@@ -153,6 +169,7 @@ async def rule_delete(request: Request, rule_id: int):
     if not deleted:
         raise HTTPException(404)
     rules = await rule_svc.list_rules(db)
+    accounts = await acc_svc.list_accounts(db)
     return templates.TemplateResponse(
-        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db)}
+        request, "partials/rule_list.html", {"rules": rules, "categories": await cat_svc.list_categories(db), "accounts": accounts}
     )

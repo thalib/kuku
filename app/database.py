@@ -128,6 +128,10 @@ async def init_db():
     except aiosqlite.OperationalError:
         await db.execute("ALTER TABLE classification_rules ADD COLUMN applies_to TEXT NOT NULL DEFAULT 'both'")
     try:
+        await db.execute("SELECT account_id FROM classification_rules LIMIT 1")
+    except aiosqlite.OperationalError:
+        await db.execute("ALTER TABLE classification_rules ADD COLUMN account_id INTEGER DEFAULT NULL")
+    try:
         await db.execute("ALTER TABLE bank_accounts ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0")
     except aiosqlite.OperationalError:
         pass

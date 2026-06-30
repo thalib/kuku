@@ -13,6 +13,7 @@ class RuleCreate(BaseModel):
     priority: int = Field(default=0, ge=0)
     applies_to: AppliesTo = "both"
     is_active: bool = True
+    account_id: int | None = Field(default=None, gt=0)
 
 
 class RuleUpdate(BaseModel):
@@ -22,3 +23,4 @@ class RuleUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=0)
     applies_to: AppliesTo | None = None
     is_active: bool | None = None
+    account_id: int | None = None

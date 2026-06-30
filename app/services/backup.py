@@ -30,7 +30,7 @@ async def export_data(db: aiosqlite.Connection) -> str:
             })
 
     cursor = await db.execute(
-        "SELECT id, search_text, match_type, category_id, priority, applies_to, is_active"
+        "SELECT id, search_text, match_type, category_id, priority, applies_to, is_active, account_id"
         " FROM classification_rules ORDER BY priority, id"
     )
     rules_raw = [dict(r) for r in await cursor.fetchall()]
@@ -39,19 +39,37 @@ async def export_data(db: aiosqlite.Connection) -> str:
     for c in all_categories:
         cat_id_to_key[c["id"]] = {"name": c["name"], "type": c["type"]}
 
+    acc_id_to_key = {}
+    cursor = await db.execute(
+        "SELECT id, bank_name, account_name, account_number FROM bank_accounts WHERE is_system = 0"
+    )
+    for acc in await cursor.fetchall():
+        acc_id_to_key[acc["id"]] = {
+            "bank_name": acc["bank_name"],
+            "account_name": acc["account_name"],
+            "account_number": acc["account_number"],
+        }
+
     rules = []
     for r in rules_raw:
         cat_ref = cat_id_to_key.get(r["category_id"])
         if not cat_ref:
             continue
-        rules.append({
+        rule_dict = {
             "search_text": r["search_text"],
             "match_type": r["match_type"],
             "category_name": cat_ref["name"],
             "category_type": cat_ref["type"],
             "priority": r["priority"],
             "applies_to": r["applies_to"],
-        })
+        }
+        if r.get("account_id"):
+            acc_ref = acc_id_to_key.get(r["account_id"])
+            if acc_ref:
+                rule_dict["account_bank_name"] = acc_ref["bank_name"]
+                rule_dict["account_name"] = acc_ref["account_name"]
+                rule_dict["account_number"] = acc_ref["account_number"]
+        rules.append(rule_dict)
 
     metadata = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -187,6 +205,15 @@ async def analyze_backup(db: aiosqlite.Connection, payload: dict) -> dict:
                 "reason": reason,
             })
             continue
+        account_id = None
+        if rule.get("account_bank_name") and rule.get("account_name") and rule.get("account_number"):
+            cursor = await db.execute(
+                "SELECT id FROM bank_accounts WHERE bank_name = ? AND account_name = ? AND account_number = ?",
+                (rule["account_bank_name"], rule["account_name"], rule["account_number"]),
+            )
+            acc_row = await cursor.fetchone()
+            if acc_row:
+                account_id = acc_row["id"]
         cursor = await db.execute(
             "SELECT id FROM classification_rules WHERE search_text = ? AND match_type = ? AND category_id = ? AND priority = ?",
             (rule["search_text"], rule["match_type"], cat_id, rule["priority"]),
@@ -204,6 +231,7 @@ async def analyze_backup(db: aiosqlite.Connection, payload: dict) -> dict:
                 "category": f"{rule['category_name']} ({rule['category_type']})",
                 "priority": rule["priority"],
                 "applies_to": rule.get("applies_to", "both"),
+                "account_id": account_id,
             })
 
     return analysis
@@ -314,6 +342,15 @@ async def import_data(
                             "error": f"Category '{rule.get('category_name', '?')}' not found",
                         })
                         continue
+                    account_id = None
+                    if rule.get("account_bank_name") and rule.get("account_name") and rule.get("account_number"):
+                        cursor = await db.execute(
+                            "SELECT id FROM bank_accounts WHERE bank_name = ? AND account_name = ? AND account_number = ?",
+                            (rule["account_bank_name"], rule["account_name"], rule["account_number"]),
+                        )
+                        acc_row = await cursor.fetchone()
+                        if acc_row:
+                            account_id = acc_row["id"]
                     cursor = await db.execute(
                         "SELECT id FROM classification_rules WHERE search_text = ? AND match_type = ? AND category_id = ? AND priority = ?",
                         (rule["search_text"], rule["match_type"], cat_id, rule["priority"]),
@@ -323,10 +360,10 @@ async def import_data(
                         continue
                     await db.execute(
                         """INSERT INTO classification_rules
-                           (search_text, match_type, category_id, priority, applies_to, is_active, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, 1, ?, ?)""",
+                           (search_text, match_type, category_id, priority, applies_to, is_active, account_id, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)""",
                         (rule["search_text"], rule["match_type"], cat_id, rule["priority"],
-                         rule.get("applies_to", "both"), now, now),
+                         rule.get("applies_to", "both"), account_id, now, now),
                     )
                     stats["rules_created"] += 1
                 except aiosqlite.Error as e:
