@@ -349,6 +349,7 @@ Table name: `bank_accounts`. Created by `init_db()`. Column `is_system` added vi
 - The **Run Rules** button appears in the header bar next to Delete Month when an account is selected.
 - Clicking it fires `POST /banks/transactions/rules/run` with `account_id`, `fy`, `month`.
 - Backend evaluates all active classification rules in ascending priority order against every transaction in the selected month.
+- **Account scoping**: Only rules where `account_id IS NULL` (all accounts) or `account_id` matches the selected account are evaluated.
 - A rule applies only if its `applies_to` matches the transaction (`both` always matches, `debit` requires `debit > 0`, `credit` requires `credit > 0`).
 - First matching rule wins; transaction category is updated if different.
 - Response JSON: `{"updated": <count>}`.
@@ -454,6 +455,7 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 | category_id    | yes      | FK → transaction_categories.id                                  |
 | priority       | —        | Integer, lower = evaluated first (default 0)                    |
 | applies_to     | —        | One of: `both` (default), `debit`, `credit`                     |
+| account_id     | —        | FK → bank_accounts.id (nullable). NULL = all accounts, specific ID = only that account |
 | is_active      | —        | Boolean, default True (toggle on/off)                           |
 | created_at     | —        | Auto-set on create                                              |
 | updated_at     | —        | Auto-set on every update                                        |
@@ -462,6 +464,7 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 
 - Rules are evaluated in ascending `priority` order.
 - Only active rules (`is_active = 1`) are considered.
+- **Account scoping**: Only rules where `account_id IS NULL` (all accounts) or `account_id` matches the target account are evaluated.
 - For each transaction, the first rule whose `search_text` matches the narration wins.
 - `contains`: narration contains `search_text` (case-insensitive).
 - `equals`: narration equals `search_text` (case-insensitive, trimmed).
@@ -472,12 +475,14 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 - Page title: `Classification Rules`
 - Primary action: `+ Add Rule` button → HTMX loads a form card in-place (`#rule-form-card`).
 - List: Bootstrap compact table (`table-sm table-hover align-middle`).
-- Columns: Priority | Search Text | Match Type | Category | Status | Actions
+- Columns: Priority | Search Text | Match Type | Category | Applies To | Account | Status | Actions
 - Priority column: plain text, sorted ascending (lowest first). Edit priority via the Edit form.
+- Account column: shows `Bank Name - Account Name` badge for account-specific rules, or `All Accounts` badge (green) when the rule applies to all accounts.
 - Status column: `form-switch` checkbox posts via HTMX to toggle active/inactive.
 - Actions: Edit (HTMX form swap), Delete (security modal — type `DELETE` to confirm).
 - Category column: shows `TYPE:CategoryName` with a coloured badge.
 - Match type badge: `bg-primary-subtle` for contains, `bg-info-subtle` for equals.
+- Form includes a **Bank Account** dropdown with all accounts (including system accounts like Cash In Hand). Empty selection = all accounts.
 - Empty state: "No rules yet. Add one to get started."
 - Responses: HTMX requests return the `partials/rule_list.html` partial (swaps the `#hx-rule-list` container). Add form is `partials/rule_form.html` (swaps `#rule-form-card`).
 
@@ -497,7 +502,7 @@ Table name: `transaction_categories`. Created by `init_db()`. System categories 
 
 ### Database
 
-Table name: `classification_rules`. Created by `init_db()`.
+Table name: `classification_rules`. Created by `init_db()`. Column `account_id` (nullable FK → bank_accounts.id) added via migration; NULL means the rule applies to all accounts.
 
 ## Export Service
 
