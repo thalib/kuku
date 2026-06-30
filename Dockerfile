@@ -1,5 +1,5 @@
 # --- Stage 1: Build dependencies ---
-FROM ghcr.io/astral-sh/uv:1.5.0-python3.11-alpine AS builder
+FROM ghcr.io/astral-sh/uv:python3.11-alpine AS builder
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 COPY pyproject.toml uv.lock ./
