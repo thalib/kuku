@@ -569,12 +569,17 @@ async def apply_rules_to_transactions(db: aiosqlite.Connection, account_id: int,
     if not active_rules:
         return 0
 
-    cursor = await db.execute(
-        """SELECT t.id, t.narration, t.debit, t.credit, t.category_id
+    uncategorized_ids = await get_uncategorized_category_ids(db)
+    uncategorized_cat_ids = list(uncategorized_ids.values())
+
+    placeholders = ",".join("?" * len(uncategorized_cat_ids)) if uncategorized_cat_ids else "NULL"
+    query = f"""SELECT t.id, t.narration, t.debit, t.credit, t.category_id
            FROM bank_transactions t
-           WHERE t.account_id = ? AND t.txn_date >= ? AND t.txn_date < ?""",
-        (account_id, start_date, end_date),
-    )
+           WHERE t.account_id = ? AND t.txn_date >= ? AND t.txn_date < ?
+             AND (t.category_id IS NULL OR t.category_id IN ({placeholders}))"""
+    params = [account_id, start_date, end_date] + uncategorized_cat_ids
+
+    cursor = await db.execute(query, params)
     txns = await cursor.fetchall()
 
     updated = 0

@@ -507,7 +507,6 @@
         alertHtml += '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
         
         alertDiv.innerHTML = alertHtml;
-        setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 8000);
         htmx.ajax('GET',
             KUKU_BASE+'/banks/transactions/filters?account_id='+sel.value+
                 (detail.fy ? '&selected_fy='+detail.fy : '')+
@@ -560,7 +559,6 @@
                 '<div class="alert alert-danger py-2 small alert-dismissible fade show mb-3" role="alert">' +
                 '<i class="bi bi-trash me-1"></i> ' + p.count + ' transactions deleted from ' + p.month_label + '.' +
                 '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
-            setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
             loadTable();
         }).catch(function(err){
             alert('Failed to delete: ' + err.message);
@@ -613,7 +611,6 @@
                 '<div class="alert alert-success py-2 small alert-dismissible fade show mb-3" role="alert">' +
                 '<i class="bi bi-check-circle me-1"></i> ' + msg +
                 '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
-            setTimeout(function(){ if (alertDiv.firstChild) alertDiv.firstChild.remove(); }, 5000);
             loadTable();
         }).catch(function(err){
             alert('Failed to run rules: ' + err.message);

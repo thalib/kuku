@@ -348,12 +348,12 @@ Table name: `bank_accounts`. Created by `init_db()`. Column `is_system` added vi
 
 - The **Run Rules** button appears in the header bar next to Delete Month when an account is selected.
 - Clicking it fires `POST /banks/transactions/rules/run` with `account_id`, `fy`, `month`.
-- Backend evaluates all active classification rules in ascending priority order against every transaction in the selected month.
+- Backend evaluates all active classification rules in ascending priority order against **Uncategorized transactions only** (transactions with `category_id IS NULL` or category set to `Uncategorized Expense` / `Uncategorized Income`) in the selected month. Already-categorized transactions are not modified.
 - **Account scoping**: Only rules where `account_id IS NULL` (all accounts) or `account_id` matches the selected account are evaluated.
 - A rule applies only if its `applies_to` matches the transaction (`both` always matches, `debit` requires `debit > 0`, `credit` requires `credit > 0`).
 - First matching rule wins; transaction category is updated if different.
 - Response JSON: `{"updated": <count>}`.
-- Frontend shows a success alert with the count and reloads the table.
+- Frontend shows a success alert with the count and reloads the table. Alerts are dismissible manually (no auto-dismiss).
 
 ### Routes
 
