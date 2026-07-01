@@ -28,6 +28,7 @@ NAV_GROUPS = [
         "links": [
             {"name": "Accounts", "url": "/banks/accounts", "icon": "bi-bank"},
             {"name": "Transaction", "url": "/banks/transactions", "icon": "bi-arrow-left-right"},
+            {"name": "Cash in Hand", "url": "/banks/cash-in-hand", "icon": "bi-cash-coin"},
             {"name": "Categories", "url": "/banks/categories", "icon": "bi-tags"},
             {"name": "Rules", "url": "/banks/rules", "icon": "bi-funnel"},
         ],

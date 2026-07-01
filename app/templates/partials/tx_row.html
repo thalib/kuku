@@ -25,7 +25,7 @@
         <button class="btn btn-outline-danger kuku-del-btn btn-sm py-0 px-1"
                 data-url="{{ root_path }}/banks/transactions/{{ txn['id'] }}"
                 data-title="Delete Transaction"
-                data-detail="{{ txn['txn_date'] }} — {{ txn['narration'][:50] }}"
+                data-detail="{{ txn['txn_date'] }} — {{ (txn['narration'] or '')[:50] }}"
                 data-event="txDeleted"
                 title="Delete"><i class="bi bi-trash"></i></button>
     </td>

@@ -1,0 +1,476 @@
+{% extends "layouts/base.html" %}
+
+{% block extra_head %}
+<link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+<style>
+    .tabulator { border: 0; }
+    .tabulator .tabulator-header { border-top: 1px solid var(--bs-border-color); }
+    .tabulator .tabulator-row.tabulator-row-even { background-color: rgba(0,0,0,.02); }
+    .tabulator .tabulator-row.tabulator-row-odd { background-color: transparent; }
+    .tabulator .tabulator-footer { border-bottom: 1px solid var(--bs-border-color); }
+    #cih-table .tabulator-cell { font-size: 0.8125rem; }
+    #cih-table .tabulator-cell[tabulator-field="narration"] { white-space: normal; }
+    .cih-action-btn { cursor: pointer; border: none; background: none; padding: 0; line-height: 1; }
+    .cih-action-btn:hover { opacity: 0.7; }
+    .tabulator .tabulator-row .tabulator-cell .tabulator-edit-select-list { max-height: 200px; }
+    .tabulator-row.cih-new-row { background-color: rgba(255, 193, 7, 0.08) !important; }
+    .tabulator-row.cihSaving { opacity: 0.5; pointer-events: none; }
+    .tabulator-row.cihDirty { background-color: rgba(13, 110, 253, 0.06) !important; }
+    .tabulator-row.cihDirty .cih-status { color: var(--bs-primary); }
+    .tabulator-row.cihSaved .cih-status { color: var(--bs-success); }
+    .cih-status { font-size: 0.65rem; margin-left: 6px; opacity: 0.7; white-space: nowrap; }
+    .tabulator-placeholder { min-height: 120px; }
+    #cih-savebar { display: none; }
+    #cih-savebar.active { display: flex; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-3 p-xl-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Cash in Hand</h1>
+        <div>
+            <button class="btn btn-secondary btn-sm me-1" id="btnDiscard" type="button">
+                <i class="bi bi-x-lg me-1"></i> Discard
+            </button>
+            <button class="btn btn-success btn-sm me-1" id="btnSaveAll" type="button">
+                <i class="bi bi-check-lg me-1"></i> Save
+            </button>
+            <button class="btn btn-success btn-sm" id="btnAddRow">
+                <i class="bi bi-plus-lg me-1"></i> Add
+            </button>
+        </div>
+    </div>
+
+    <div id="cih-savebar" class="alert alert-primary py-2 mb-3" role="alert">
+        <i class="bi bi-pencil-square me-1"></i>
+        <span id="cih-savebar-msg" class="small">Unsaved changes</span>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-auto d-flex gap-2 align-items-center" id="hx-filters"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cih-alert-area"></div>
+
+    <div class="card border-0 shadow-sm mb-3" id="cih-summary-card">
+        <div class="card-body py-2">
+            <div class="row g-2 text-center">
+                <div class="col-md-3">
+                    <div class="small text-muted">Period</div>
+                    <div class="fw-semibold small" id="cih-sum-period">—</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="small text-muted">Total Debit</div>
+                    <div class="fw-semibold text-danger" id="cih-sum-debit">0.00</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="small text-muted">Total Credit</div>
+                    <div class="fw-semibold text-success" id="cih-sum-credit">0.00</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="small text-muted">Net</div>
+                    <div class="fw-semibold" id="cih-sum-net">0.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cih-table"></div>
+</div>
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+<script>
+(function(){
+    var table = null;
+    var catListItems = [];
+    var catMap = {};
+    var currentFy = null;
+    var currentMonth = null;
+
+    function fmtMoney(cell) {
+        var val = parseFloat(cell.getValue()) || 0;
+        if (val === 0) return '';
+        return val.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function actionFormatter() {
+        return '<button class="cih-action-btn text-danger" title="Delete"><i class="bi bi-trash"></i></button>';
+    }
+
+    function catFormatter(cell) {
+        var data = cell.getRow().getData();
+        var catId = parseInt(data.category_id);
+        if (catId && catMap[catId]) {
+            var c = catMap[catId];
+            var typeClass = {
+                'Income': 'text-bg-success', 'Expense': 'text-bg-danger',
+                'Asset': 'text-bg-primary', 'Liability': 'text-bg-warning',
+                'Equity': 'text-bg-info', 'Transfer': 'text-bg-secondary'
+            };
+            var cls = typeClass[c.type] || 'text-bg-secondary';
+            var label = c.type.substring(0, 3).toUpperCase() + ':' + c.name;
+            return '<span class="badge ' + cls + '" style="font-size:0.7rem">' + label + '</span>';
+        }
+        return '<span class="text-muted small">\u2014</span>';
+    }
+
+    function loadCategories() {
+        return fetch(KUKU_BASE + '/banks/cash-in-hand/categories')
+            .then(function(r) { return r.json(); })
+            .then(function(cats) {
+                catMap = {};
+                cats.forEach(function(c) { catMap[c.id] = {name: c.name, type: c.type}; });
+                catListItems = cats.map(function(c) {
+                    return {label: c.type.substring(0, 3).toUpperCase() + ':' + c.name, value: c.id};
+                });
+            });
+    }
+
+    function loadSummary() {
+        if (!currentFy || !currentMonth) return;
+        fetch(KUKU_BASE + '/banks/cash-in-hand/summary?fy=' + currentFy + '&month=' + currentMonth)
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                document.getElementById('cih-sum-period').textContent = d.month_label || '\u2014';
+                document.getElementById('cih-sum-debit').textContent = d.total_debit.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                document.getElementById('cih-sum-credit').textContent = d.total_credit.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                var net = d.total_credit - d.total_debit;
+                var netEl = document.getElementById('cih-sum-net');
+                netEl.textContent = net.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                netEl.className = 'fw-semibold ' + (net >= 0 ? 'text-success' : 'text-danger');
+            });
+    }
+
+    function markDirty() {
+        var bar = document.getElementById('cih-savebar');
+        var count = 0;
+        table.getRows().forEach(function(r) {
+            var d = r.getData();
+            if (d._dirty) { count++; }
+        });
+        if (count > 0) {
+            bar.classList.add('active');
+            document.getElementById('cih-savebar-msg').textContent = count + ' unsaved change' + (count > 1 ? 's' : '') + '.';
+        } else {
+            bar.classList.remove('active');
+        }
+    }
+
+    function rowSetState(row, state) {
+        var el = row.getElement();
+        if (el) {
+            el.classList.remove('cihDirty', 'cihSaved', 'cihSaving', 'cih-new-row');
+            el.classList.add('cih' + state.charAt(0).toUpperCase() + state.slice(1));
+        }
+    }
+
+    function createNewRow(row, callback) {
+        var data = row.getData();
+        if (data._saving || data.id) return Promise.resolve();
+        data._saving = true;
+        rowSetState(row, 'saving');
+
+        var payload = {
+            txn_date: data.txn_date,
+            value_date: data.value_date || data.txn_date,
+            narration: data.narration || null,
+            reference: data.reference || null,
+            debit: parseFloat(data.debit) || 0,
+            credit: parseFloat(data.credit) || 0,
+            balance: parseFloat(data.balance) || 0,
+            category_id: data.category_id ? parseInt(data.category_id) : null
+        };
+
+        return fetch(KUKU_BASE + '/banks/cash-in-hand', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(function(r) {
+            if (!r.ok) throw new Error('Save failed');
+            return r.json();
+        }).then(function(created) {
+            data.id = created.id;
+            data._saving = false;
+            data._dirty = false;
+            rowSetState(row, 'saved');
+            setTimeout(function() { rowSetState(row, ''); }, 800);
+            if (callback) callback(created);
+        }).catch(function(err) {
+            data._saving = false;
+            rowSetState(row, 'dirty');
+            showAlert('Failed to save row: ' + err.message, 'danger');
+        });
+    }
+
+    function updateRow(row, field, value, callback) {
+        var data = row.getData();
+        if (!data.id) return Promise.resolve();
+        var payload = {};
+        payload[field] = value;
+
+        return fetch(KUKU_BASE + '/banks/cash-in-hand/' + data.id, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        }).then(function(r) {
+            if (!r.ok) throw new Error('Save failed');
+            return r.json();
+        }).then(function(updated) {
+            data._dirty = false;
+            rowSetState(row, 'saved');
+            setTimeout(function() { rowSetState(row, ''); }, 800);
+            if (callback) callback(updated);
+        }).catch(function(err) {
+            rowSetState(row, 'dirty');
+            showAlert('Failed to save: ' + err.message, 'danger');
+        });
+    }
+
+    function discardUnsaved() {
+        var dirtyRows = table.getRows().filter(function(r) { return r.getData()._dirty; });
+        var unsavedRows = table.getRows().filter(function(r) { return !r.getData().id; });
+        dirtyRows.forEach(function(r) {
+            r.delete();
+        });
+        unsavedRows.forEach(function(r) {
+            r.delete();
+        });
+        document.getElementById('cih-savebar').classList.remove('active');
+    }
+
+    function saveAllPending() {
+        var pending = [];
+        table.getRows().forEach(function(r) {
+            var d = r.getData();
+            if (!d.id) {
+                pending.push(createNewRow(r));
+            } else if (d._dirty) {
+                var cell = r.getCell('category_id');
+                var val = cell ? cell.getValue() : d.category_id;
+                if (val !== null && val !== undefined && val !== '') {
+                    pending.push(updateRow(r, 'category_id', parseInt(val)));
+                }
+            }
+        });
+        return Promise.all(pending).then(function() {
+            document.getElementById('cih-savebar').classList.remove('active');
+            loadSummary();
+            showAlert('All changes saved.');
+        });
+    }
+
+    function showAlert(msg, type) {
+        type = type || 'success';
+        var area = document.getElementById('cih-alert-area');
+        area.innerHTML =
+            '<div class="alert alert-' + type + ' py-2 small alert-dismissible fade show mb-3" role="alert">' +
+            '<i class="bi bi-' + (type === 'success' ? 'check-circle' : 'exclamation-triangle-fill') + ' me-1"></i> ' + msg +
+            '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function buildTable(fy, month) {
+        currentFy = fy;
+        currentMonth = month;
+        var url = KUKU_BASE + '/banks/cash-in-hand/data?fy=' + fy + '&month=' + month;
+
+        if (table) {
+            table.setData(url).then(function() { loadSummary(); markDirty(); });
+            return;
+        }
+
+        table = new Tabulator("#cih-table", {
+            ajaxURL: url,
+            layout: "fitColumns",
+            height: "auto",
+            placeholder: '<div class="text-center text-muted py-4"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i><p class="mb-1">No transactions for this period.</p><p class="small mb-0">Click <strong>Add</strong> to enter one.</p></div>',
+            headerVisible: true,
+            rowFormatter: function(row) {
+                var el = row.getElement();
+                var d = row.getData();
+                el.classList.remove('cihDirty', 'cihSaved', 'cihSaving', 'cih-new-row');
+                if (d._dirty) el.classList.add('cihDirty');
+                else if (!d.id) el.classList.add('cih-new-row');
+            },
+            columns: [
+                {title: "Date", field: "txn_date", width: 120, sorter: "date",
+                 editor: "input"},
+                {title: "Narration", field: "narration", editor: "textarea",
+                 editorParams: {verticalNavigation: "hybrid", shiftEnterSentinel: true},
+                 cssClass: "small"},
+                {title: "Ref", field: "reference", width: 100, editor: "input",
+                 cssClass: "small"},
+                {title: "Category", field: "category_id", width: 180,
+                 formatter: catFormatter,
+                 editor: "list",
+                 editorParams: {
+                     values: catListItems,
+                     valuesLookup: false,
+                     clearable: true,
+                     filterFunc: function(term, label) {
+                         if (!term) return true;
+                         return label.toLowerCase().indexOf(term.toLowerCase()) >= 0;
+                     }
+                 }},
+                {title: "Debit", field: "debit", width: 100, hozAlign: "right",
+                 formatter: fmtMoney,
+                 editor: "number",
+                 editorParams: {min: 0, step: 0.01, verticalNavigation: "editor"}},
+                {title: "Credit", field: "credit", width: 100, hozAlign: "right",
+                 formatter: fmtMoney,
+                 editor: "number",
+                 editorParams: {min: 0, step: 0.01, verticalNavigation: "editor"}},
+                {title: "", width: 40, hozAlign: "center", headerSort: false,
+                 formatter: actionFormatter,
+                 cellClick: function(e, cell) {
+                     var row = cell.getRow();
+                     var data = row.getData();
+                     if (!data.id) {
+                         if (data._dirty) {
+                             if (!confirm('Discard this unsaved row?')) return;
+                         }
+                         row.delete();
+                         markDirty();
+                         return;
+                     }
+                     if (!confirm('Delete this transaction?')) return;
+                     fetch(KUKU_BASE + '/banks/cash-in-hand/' + data.id, {method: 'DELETE'})
+                         .then(function(r) {
+                             if (!r.ok) throw new Error('Delete failed');
+                             row.delete();
+                             loadSummary();
+                             showAlert('Transaction deleted.');
+                         }).catch(function(err) {
+                             showAlert('Failed to delete: ' + err.message, 'danger');
+                         });
+                 }}
+            ],
+            cellEdited: function(cell) {
+                var row = cell.getRow();
+                var data = row.getData();
+                var field = cell.getField();
+                var value = cell.getValue();
+
+                data._dirty = true;
+                rowSetState(row, 'dirty');
+                markDirty();
+
+                if (field === 'category_id') {
+                    if (data.id) {
+                        var catId = parseInt(value) || null;
+                        updateRow(row, 'category_id', catId, function() { loadSummary(); });
+                    }
+                    return;
+                }
+
+                if (!data.id) {
+                    if (data._saving) return;
+                    createNewRow(row, function() {
+                        loadSummary();
+                    });
+                    return;
+                }
+
+                updateRow(row, field, value, function() { loadSummary(); });
+            },
+            dataChanged: function() {
+                markDirty();
+            }
+        });
+
+        table.on("tableBuilt", function() {
+            loadSummary();
+            markDirty();
+        });
+    }
+
+    function loadFilters(selectedFy, selectedMonth) {
+        var params = [];
+        if (selectedFy) params.push('selected_fy=' + selectedFy);
+        if (selectedMonth) params.push('selected_month=' + selectedMonth);
+        var url = KUKU_BASE + '/banks/cash-in-hand/filters' + (params.length ? '?' + params.join('&') : '');
+        htmx.ajax('GET', url, '#hx-filters');
+    }
+
+    document.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target.id !== 'hx-filters') return;
+        var fySel = document.getElementById('cihSelFy');
+        var moSel = document.getElementById('cihSelMonth');
+        if (fySel && moSel) {
+            buildTable(parseInt(fySel.value), parseInt(moSel.value));
+        }
+    });
+
+    document.addEventListener('change', function(e) {
+        if (e.target.id === 'cihSelFy') {
+            loadFilters(e.target.value, null);
+        }
+        if (e.target.id === 'cihSelMonth') {
+            var fySel = document.getElementById('cihSelFy');
+            if (fySel) {
+                buildTable(parseInt(fySel.value), parseInt(e.target.value));
+            }
+        }
+    });
+
+    document.getElementById('btnAddRow').addEventListener('click', function() {
+        if (!table) return;
+        var today = new Date().toISOString().split('T')[0];
+        table.addRow({
+            txn_date: today,
+            value_date: today,
+            narration: '',
+            reference: '',
+            debit: 0,
+            credit: 0,
+            balance: 0,
+            category_id: null,
+            _saving: false,
+            _dirty: true
+        }, true).then(function(row) {
+            var cell = row.getCell('txn_date');
+            if (cell) cell.edit();
+            markDirty();
+        });
+    });
+
+    document.getElementById('btnSaveAll').addEventListener('click', function() {
+        if (!table) return;
+        var btn = this;
+        btn.disabled = true;
+        saveAllPending().finally(function() {
+            btn.disabled = false;
+        });
+    });
+
+    document.getElementById('btnDiscard').addEventListener('click', function() {
+        if (!table) return;
+        discardUnsaved();
+        showAlert('Unsaved changes discarded.', 'warning');
+    });
+
+    window.addEventListener('beforeunload', function(e) {
+        if (!table) return;
+        var hasDirty = false;
+        table.getRows().forEach(function(r) {
+            var d = r.getData();
+            if (d._dirty || !d.id) hasDirty = true;
+        });
+        if (hasDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    loadCategories().then(function() {
+        loadFilters();
+    });
+})();
+</script>
+{% endblock %}
+{% endblock %}

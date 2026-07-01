@@ -11,6 +11,7 @@
 |         | Dashboard      | /                            |
 | BANKS   | Accounts       | /banks/accounts              |
 | BANKS   | Transaction    | /banks/transactions          |
+| BANKS   | Cash in Hand   | /banks/cash-in-hand          |
 | BANKS   | Categories     | /banks/categories            |
 | BANKS   | Rules          | /banks/rules                 |
 | REPORTS | Profit & Loss  | /reports/profit-loss         |
@@ -380,6 +381,69 @@ Table name: `bank_accounts`. Created by `init_db()`. Column `is_system` added vi
 ### Database
 
 Table name: `bank_transactions`. Created by `init_db()` with FK to `bank_accounts`. `category_id` column is nullable; added via `ALTER TABLE` migration on startup. New transactions without category receive the auto-classified default on insert; existing unclassified transactions are retroactively classified on server start. System categories `Uncategorized Income` and `Uncategorized Expense` are seeded alongside the 39 default categories.
+
+## Cash in Hand
+
+**URL**: `/banks/cash-in-hand`
+**Purpose**: Manage petty cash transactions for the Cash In Hand system account. Uses Tabulator for inline editing of all fields. No account selection — restricted to the system Cash In Hand account only.
+
+### Fields
+
+Same as Bank Transactions (date, value_date, narration, reference, debit, credit, balance, category_id). All stored in the `bank_transactions` table with `account_id` pointing to the Cash In Hand system account.
+
+### UI Layout
+
+- Page title: `Cash in Hand`
+- Button bar: **Discard** (secondary) · **Save** (success) · **Add** (success) — always visible
+- Period selector: FY dropdown + Month dropdown — always visible (not data-dependent)
+  - FY dropdown: fixed range (current FY ± 2 years), defaults to current FY
+  - Month dropdown: all 12 months in Indian FY order (Apr → Mar), defaults to current calendar month
+  - Months with existing data are marked with a `•` dot indicator in the dropdown
+- Unsaved changes bar: appears when there are dirty/unsaved rows; shows count of unsaved changes
+- Summary bar: Period label, Total Debit, Total Credit, Net — always visible (0.00 when empty)
+- Tabulator table with inline editing for all cells:
+  - Date: input editor
+  - Narration: textarea editor
+  - Reference: input editor
+  - Category: searchable list editor with type:name labels (clearable)
+  - Debit/Credit: number editors (right-aligned, Indian locale formatting)
+  - Actions: delete button per row
+- Row state indicators:
+  - New/unsaved: highlighted light yellow
+  - Dirty (edited but not saved): highlighted light blue
+  - Saving: row dims during network request
+  - Saved: brief green flash on confirmed persist
+- Add flow: appends new empty row at top, auto-focuses date cell; on first cell edit the row is POSTed to create it; subsequent edits are PUT and marked dirty
+- Save button: persists ALL unsaved rows in one action (POST for new rows, PUT for dirty rows)
+- Discard button: removes all unsaved/dirty rows (prompts per row if dirty)
+- Summary updates after every save/delete
+- Unsaved changes trigger browser `beforeunload` confirmation dialog
+- Empty state: "No transactions for this period. Click **Add** to enter one."
+
+### Technology
+
+- Tabulator 6.3 (CDN) — virtual DOM table with inline editing
+- Bootstrap 5 theme for Tabulator
+- Category formatter uses a client-side map (`catMap`) populated once from `/banks/cash-in-hand/categories` — formatter only needs `category_id` to display; no server-side `cat_name`/`cat_type` dependency
+- No HTMX for table rendering — Tabulator handles its own DOM
+- HTMX used only for the filter dropdowns
+
+### Routes
+
+| Method | URL                              | Purpose                         |
+|--------|----------------------------------|---------------------------------|
+| GET    | /banks/cash-in-hand              | Page                            |
+| GET    | /banks/cash-in-hand/filters      | FY/month dropdowns (HTMX)       |
+| GET    | /banks/cash-in-hand/data         | Transaction data (JSON)         |
+| GET    | /banks/cash-in-hand/summary      | Summary totals (JSON)           |
+| GET    | /banks/cash-in-hand/categories   | Category list (JSON)            |
+| POST   | /banks/cash-in-hand              | Create transaction (JSON)       |
+| PUT    | /banks/cash-in-hand/{id}         | Update transaction (JSON)       |
+| DELETE | /banks/cash-in-hand/{id}         | Delete transaction (JSON)       |
+
+### Database
+
+Reuses the `bank_transactions` table. The `account_id` is always the Cash In Hand system account (resolved via `bank_svc.get_system_account()`).
 
 ## Transaction Categories
 

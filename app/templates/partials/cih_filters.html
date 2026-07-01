@@ -1,0 +1,12 @@
+<div class="d-flex gap-2 align-items-center">
+    <select id="cihSelFy" class="form-select form-select-sm">
+        {% for fy in fy_years %}
+            <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>FY {{ fy }}-{{ fy + 1 }}</option>
+        {% endfor %}
+    </select>
+    <select id="cihSelMonth" class="form-select form-select-sm">
+        {% for m, label, has_data in months %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>{{ "%02d"|format(m) }} - {{ label }}{% if has_data %} •{% endif %}</option>
+        {% endfor %}
+    </select>
+</div>
