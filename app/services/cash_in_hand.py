@@ -43,7 +43,7 @@ async def create_transaction(db: aiosqlite.Connection, data: dict) -> dict:
         """INSERT INTO bank_transactions
            (account_id, txn_date, value_date, narration, reference, debit, credit, balance, category_id, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (account_id, data["txn_date"], data.get("value_date", data["txn_date"]),
+        (account_id, data["txn_date"], data.get("value_date") or data["txn_date"],
          data.get("narration"), data.get("reference"),
          data.get("debit", 0), data.get("credit", 0),
          data.get("balance", 0), data.get("category_id"), now, now),

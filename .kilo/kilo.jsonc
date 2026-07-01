@@ -10,7 +10,8 @@
       "command": [
         "npx",
         "-y",
-        "@playwright/mcp@0.0.38"
+        "@playwright/mcp@0.0.38",
+        "--browser", "chromium"
       ]
     }
   },

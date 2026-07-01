@@ -3,25 +3,20 @@
 {% block extra_head %}
 <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
 <style>
-    .tabulator { border: 0; }
-    .tabulator .tabulator-header { border-top: 1px solid var(--bs-border-color); }
-    .tabulator .tabulator-row.tabulator-row-even { background-color: rgba(0,0,0,.02); }
-    .tabulator .tabulator-row.tabulator-row-odd { background-color: transparent; }
-    .tabulator .tabulator-footer { border-bottom: 1px solid var(--bs-border-color); }
+    #cih-table .tabulator { border: 0; }
+    #cih-table .tabulator-header { border-top: 1px solid var(--bs-border-color); }
+    #cih-table .tabulator-row.tabulator-row-even { background-color: rgba(0,0,0,.02); }
+    #cih-table .tabulator-row.tabulator-row-odd { background-color: transparent; }
+    #cih-table .tabulator-footer { border-bottom: 1px solid var(--bs-border-color); }
     #cih-table .tabulator-cell { font-size: 0.8125rem; }
     #cih-table .tabulator-cell[tabulator-field="narration"] { white-space: normal; }
     .cih-action-btn { cursor: pointer; border: none; background: none; padding: 0; line-height: 1; }
     .cih-action-btn:hover { opacity: 0.7; }
     .tabulator .tabulator-row .tabulator-cell .tabulator-edit-select-list { max-height: 200px; }
     .tabulator-row.cih-new-row { background-color: rgba(255, 193, 7, 0.08) !important; }
-    .tabulator-row.cihSaving { opacity: 0.5; pointer-events: none; }
-    .tabulator-row.cihDirty { background-color: rgba(13, 110, 253, 0.06) !important; }
-    .tabulator-row.cihDirty .cih-status { color: var(--bs-primary); }
-    .tabulator-row.cihSaved .cih-status { color: var(--bs-success); }
-    .cih-status { font-size: 0.65rem; margin-left: 6px; opacity: 0.7; white-space: nowrap; }
+    .tabulator-row.cih-dirty { background-color: rgba(13, 110, 253, 0.06) !important; }
     .tabulator-placeholder { min-height: 120px; }
-    #cih-savebar { display: none; }
-    #cih-savebar.active { display: flex; }
+    .cih-savebar-wrap { min-height: 40px; }
 </style>
 {% endblock %}
 
@@ -30,27 +25,29 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">Cash in Hand</h1>
         <div>
-            <button class="btn btn-secondary btn-sm me-1" id="btnDiscard" type="button">
-                <i class="bi bi-x-lg me-1"></i> Discard
+            <button class="btn btn-secondary btn-sm me-1" id="btn-cih-discard" type="button">
+                <i class="bi bi-x-lg me-1"></i>Discard
             </button>
-            <button class="btn btn-success btn-sm me-1" id="btnSaveAll" type="button">
-                <i class="bi bi-check-lg me-1"></i> Save
+            <button class="btn btn-success btn-sm me-1" id="btn-cih-save" type="button" disabled>
+                <i class="bi bi-check-lg me-1"></i>Save
             </button>
-            <button class="btn btn-success btn-sm" id="btnAddRow">
-                <i class="bi bi-plus-lg me-1"></i> Add
+            <button class="btn btn-outline-success btn-sm" id="btn-cih-add">
+                <i class="bi bi-plus-lg me-1"></i>Add Row
             </button>
         </div>
     </div>
 
-    <div id="cih-savebar" class="alert alert-primary py-2 mb-3" role="alert">
-        <i class="bi bi-pencil-square me-1"></i>
-        <span id="cih-savebar-msg" class="small">Unsaved changes</span>
+    <div class="cih-savebar-wrap">
+        <div id="cih-savebar" class="alert alert-primary py-2 mb-3 d-none" role="alert">
+            <i class="bi bi-pencil-square me-1"></i>
+            <span id="cih-savebar-msg" class="small">Unsaved changes</span>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
             <div class="row g-2 align-items-center">
-                <div class="col-auto d-flex gap-2 align-items-center" id="hx-filters"></div>
+                <div class="col-auto d-flex gap-2 align-items-center" id="hx-cih-filters"></div>
             </div>
         </div>
     </div>
@@ -82,241 +79,183 @@
 
     <div id="cih-table"></div>
 </div>
+{% endblock %}
 
 {% block extra_scripts %}
 <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
 <script>
 (function(){
+    var BASE = KUKU_BASE || "";
+    var CATS_URL = BASE + "/banks/cash-in-hand/categories";
+    var DATA_URL = BASE + "/banks/cash-in-hand/data";
+    var SUMMARY_URL = BASE + "/banks/cash-in-hand/summary";
+    var CREATE_URL = BASE + "/banks/cash-in-hand";
+
     var table = null;
     var catListItems = [];
     var catMap = {};
+    var pendingEdits = {};
     var currentFy = null;
     var currentMonth = null;
 
     function fmtMoney(cell) {
         var val = parseFloat(cell.getValue()) || 0;
-        if (val === 0) return '';
-        return val.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (val === 0) return "";
+        return val.toLocaleString("en-IN", {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
 
-    function actionFormatter() {
+    function deleteBtnFormatter() {
         return '<button class="cih-action-btn text-danger" title="Delete"><i class="bi bi-trash"></i></button>';
     }
 
     function catFormatter(cell) {
-        var data = cell.getRow().getData();
-        var catId = parseInt(data.category_id);
-        if (catId && catMap[catId]) {
-            var c = catMap[catId];
-            var typeClass = {
-                'Income': 'text-bg-success', 'Expense': 'text-bg-danger',
-                'Asset': 'text-bg-primary', 'Liability': 'text-bg-warning',
-                'Equity': 'text-bg-info', 'Transfer': 'text-bg-secondary'
-            };
-            var cls = typeClass[c.type] || 'text-bg-secondary';
-            var label = c.type.substring(0, 3).toUpperCase() + ':' + c.name;
+        var d = cell.getRow().getData();
+        var cid = parseInt(d.category_id);
+        if (cid && catMap[cid]) {
+            var c = catMap[cid];
+            var cls = {
+                "Income": "text-bg-success", "Expense": "text-bg-danger",
+                "Asset": "text-bg-primary", "Liability": "text-bg-warning",
+                "Equity": "text-bg-info", "Transfer": "text-bg-secondary"
+            }[c.type] || "text-bg-secondary";
+            var label = c.type.substring(0, 3).toUpperCase() + ":" + c.name;
             return '<span class="badge ' + cls + '" style="font-size:0.7rem">' + label + '</span>';
         }
         return '<span class="text-muted small">\u2014</span>';
     }
 
     function loadCategories() {
-        return fetch(KUKU_BASE + '/banks/cash-in-hand/categories')
-            .then(function(r) { return r.json(); })
-            .then(function(cats) {
-                catMap = {};
-                cats.forEach(function(c) { catMap[c.id] = {name: c.name, type: c.type}; });
-                catListItems = cats.map(function(c) {
-                    return {label: c.type.substring(0, 3).toUpperCase() + ':' + c.name, value: c.id};
-                });
+        return fetch(CATS_URL).then(function(r){ return r.json(); }).then(function(cats){
+            catMap = {};
+            catListItems = cats.map(function(c){
+                catMap[c.id] = {name: c.name, type: c.type};
+                return {
+                    label: c.type.substring(0,3).toUpperCase() + ":" + c.name,
+                    value: c.id
+                };
             });
+            if (table) {
+                table.updateColumnDefinition("category_id", {
+                    editor: "list",
+                    editorParams: {values: catListItems, clearable: true}
+                });
+            }
+        });
     }
 
     function loadSummary() {
         if (!currentFy || !currentMonth) return;
-        fetch(KUKU_BASE + '/banks/cash-in-hand/summary?fy=' + currentFy + '&month=' + currentMonth)
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                document.getElementById('cih-sum-period').textContent = d.month_label || '\u2014';
-                document.getElementById('cih-sum-debit').textContent = d.total_debit.toLocaleString('en-IN', {minimumFractionDigits: 2});
-                document.getElementById('cih-sum-credit').textContent = d.total_credit.toLocaleString('en-IN', {minimumFractionDigits: 2});
+        fetch(SUMMARY_URL + "?fy=" + currentFy + "&month=" + currentMonth)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                document.getElementById("cih-sum-period").textContent = d.month_label || "\u2014";
+                document.getElementById("cih-sum-debit").textContent =
+                    d.total_debit.toLocaleString("en-IN", {minimumFractionDigits: 2});
+                document.getElementById("cih-sum-credit").textContent =
+                    d.total_credit.toLocaleString("en-IN", {minimumFractionDigits: 2});
                 var net = d.total_credit - d.total_debit;
-                var netEl = document.getElementById('cih-sum-net');
-                netEl.textContent = net.toLocaleString('en-IN', {minimumFractionDigits: 2});
-                netEl.className = 'fw-semibold ' + (net >= 0 ? 'text-success' : 'text-danger');
+                var el = document.getElementById("cih-sum-net");
+                el.textContent = net.toLocaleString("en-IN", {minimumFractionDigits: 2});
+                el.className = "fw-semibold " + (net >= 0 ? "text-success" : "text-danger");
             });
     }
 
-    function markDirty() {
-        var bar = document.getElementById('cih-savebar');
-        var count = 0;
-        table.getRows().forEach(function(r) {
+    function countDirty() {
+        var n = 0;
+        table.getRows().forEach(function(r){
             var d = r.getData();
-            if (d._dirty) { count++; }
+            if (d._isNew || (d._dirty && d.id)) n++;
         });
-        if (count > 0) {
-            bar.classList.add('active');
-            document.getElementById('cih-savebar-msg').textContent = count + ' unsaved change' + (count > 1 ? 's' : '') + '.';
+        return n;
+    }
+
+    function updateSaveBar() {
+        var n = countDirty();
+        var bar = document.getElementById("cih-savebar");
+        var msg = document.getElementById("cih-savebar-msg");
+        var btn = document.getElementById("btn-cih-save");
+        if (n > 0) {
+            bar.classList.remove("d-none");
+            msg.textContent = n + " unsaved change" + (n > 1 ? "s" : "") + ".";
+            btn.disabled = false;
         } else {
-            bar.classList.remove('active');
+            bar.classList.add("d-none");
+            btn.disabled = true;
         }
     }
 
-    function rowSetState(row, state) {
+    function applyRowStyle(row) {
         var el = row.getElement();
-        if (el) {
-            el.classList.remove('cihDirty', 'cihSaved', 'cihSaving', 'cih-new-row');
-            el.classList.add('cih' + state.charAt(0).toUpperCase() + state.slice(1));
-        }
+        var d = row.getData();
+        el.classList.remove("cih-new-row", "cih-dirty");
+        if (d._isNew) el.classList.add("cih-new-row");
+        else if (d._dirty && !d._saving) el.classList.add("cih-dirty");
     }
 
-    function createNewRow(row, callback) {
-        var data = row.getData();
-        if (data._saving || data.id) return Promise.resolve();
-        data._saving = true;
-        rowSetState(row, 'saving');
-
-        var payload = {
-            txn_date: data.txn_date,
-            value_date: data.value_date || data.txn_date,
-            narration: data.narration || null,
-            reference: data.reference || null,
-            debit: parseFloat(data.debit) || 0,
-            credit: parseFloat(data.credit) || 0,
-            balance: parseFloat(data.balance) || 0,
-            category_id: data.category_id ? parseInt(data.category_id) : null
-        };
-
-        return fetch(KUKU_BASE + '/banks/cash-in-hand', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        }).then(function(r) {
-            if (!r.ok) throw new Error('Save failed');
-            return r.json();
-        }).then(function(created) {
-            data.id = created.id;
-            data._saving = false;
-            data._dirty = false;
-            rowSetState(row, 'saved');
-            setTimeout(function() { rowSetState(row, ''); }, 800);
-            if (callback) callback(created);
-        }).catch(function(err) {
-            data._saving = false;
-            rowSetState(row, 'dirty');
-            showAlert('Failed to save row: ' + err.message, 'danger');
-        });
-    }
-
-    function updateRow(row, field, value, callback) {
-        var data = row.getData();
-        if (!data.id) return Promise.resolve();
-        var payload = {};
-        payload[field] = value;
-
-        return fetch(KUKU_BASE + '/banks/cash-in-hand/' + data.id, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        }).then(function(r) {
-            if (!r.ok) throw new Error('Save failed');
-            return r.json();
-        }).then(function(updated) {
-            data._dirty = false;
-            rowSetState(row, 'saved');
-            setTimeout(function() { rowSetState(row, ''); }, 800);
-            if (callback) callback(updated);
-        }).catch(function(err) {
-            rowSetState(row, 'dirty');
-            showAlert('Failed to save: ' + err.message, 'danger');
-        });
-    }
-
-    function discardUnsaved() {
-        var dirtyRows = table.getRows().filter(function(r) { return r.getData()._dirty; });
-        var unsavedRows = table.getRows().filter(function(r) { return !r.getData().id; });
-        dirtyRows.forEach(function(r) {
-            r.delete();
-        });
-        unsavedRows.forEach(function(r) {
-            r.delete();
-        });
-        document.getElementById('cih-savebar').classList.remove('active');
-    }
-
-    function saveAllPending() {
-        var pending = [];
-        table.getRows().forEach(function(r) {
-            var d = r.getData();
-            if (!d.id) {
-                pending.push(createNewRow(r));
-            } else if (d._dirty) {
-                var cell = r.getCell('category_id');
-                var val = cell ? cell.getValue() : d.category_id;
-                if (val !== null && val !== undefined && val !== '') {
-                    pending.push(updateRow(r, 'category_id', parseInt(val)));
-                }
-            }
-        });
-        return Promise.all(pending).then(function() {
-            document.getElementById('cih-savebar').classList.remove('active');
-            loadSummary();
-            showAlert('All changes saved.');
-        });
+    function rowSaved(row) {
+        var el = row.getElement();
+        el.classList.remove("cih-dirty", "cih-new-row");
     }
 
     function showAlert(msg, type) {
-        type = type || 'success';
-        var area = document.getElementById('cih-alert-area');
+        type = type || "success";
+        var area = document.getElementById("cih-alert-area");
         area.innerHTML =
             '<div class="alert alert-' + type + ' py-2 small alert-dismissible fade show mb-3" role="alert">' +
-            '<i class="bi bi-' + (type === 'success' ? 'check-circle' : 'exclamation-triangle-fill') + ' me-1"></i> ' + msg +
+            '<i class="bi bi-' + (type === "success" ? "check-circle" : "exclamation-triangle") + ' me-1"></i>' +
+            msg +
             '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+    }
+
+    function handleCellEdited(cell) {
+        var row = cell.getRow();
+        var d = row.getData();
+        var field = cell.getField();
+        var value = cell.getValue();
+
+        if (d._isNew) {
+            d._dirty = true;
+            return;
+        }
+        if (!d.id) return;
+
+        if (!pendingEdits[d.id]) pendingEdits[d.id] = {};
+        pendingEdits[d.id][field] = value;
+        d._dirty = true;
+        updateSaveBar();
     }
 
     function buildTable(fy, month) {
         currentFy = fy;
         currentMonth = month;
-        var url = KUKU_BASE + '/banks/cash-in-hand/data?fy=' + fy + '&month=' + month;
+        pendingEdits = {};
+        var url = DATA_URL + "?fy=" + fy + "&month=" + month;
 
         if (table) {
-            table.setData(url).then(function() { loadSummary(); markDirty(); });
+            table.setData(url).then(function(){
+                loadSummary();
+                updateSaveBar();
+            });
             return;
         }
 
         table = new Tabulator("#cih-table", {
             ajaxURL: url,
+            height: 500,
             layout: "fitColumns",
-            height: "auto",
-            placeholder: '<div class="text-center text-muted py-4"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i><p class="mb-1">No transactions for this period.</p><p class="small mb-0">Click <strong>Add</strong> to enter one.</p></div>',
-            headerVisible: true,
-            rowFormatter: function(row) {
-                var el = row.getElement();
-                var d = row.getData();
-                el.classList.remove('cihDirty', 'cihSaved', 'cihSaving', 'cih-new-row');
-                if (d._dirty) el.classList.add('cihDirty');
-                else if (!d.id) el.classList.add('cih-new-row');
+            placeholder: '<div class="text-center text-muted py-4"><i class="bi bi-hand-index-thumb fs-3 d-block mb-2"></i><p class="mb-1">No transactions for this period.</p><p class="small mb-0">Click <strong>Add Row</strong> to enter one.</p></div>',
+            rowFormatter: function(row){
+                applyRowStyle(row);
             },
             columns: [
-                {title: "Date", field: "txn_date", width: 120, sorter: "date",
-                 editor: "input"},
+                {title: "Date", field: "txn_date", width: 120, sorter: "date", editor: "input"},
                 {title: "Narration", field: "narration", editor: "textarea",
-                 editorParams: {verticalNavigation: "hybrid", shiftEnterSentinel: true},
-                 cssClass: "small"},
-                {title: "Ref", field: "reference", width: 100, editor: "input",
-                 cssClass: "small"},
+                 editorParams: {verticalNavigation: "hybrid", shiftEnterSubmit: true}},
+                {title: "Ref", field: "reference", width: 100, editor: "input"},
                 {title: "Category", field: "category_id", width: 180,
                  formatter: catFormatter,
                  editor: "list",
-                 editorParams: {
-                     values: catListItems,
-                     valuesLookup: false,
-                     clearable: true,
-                     filterFunc: function(term, label) {
-                         if (!term) return true;
-                         return label.toLowerCase().indexOf(term.toLowerCase()) >= 0;
-                     }
-                 }},
+                 editorParams: {values: catListItems, clearable: true}},
                 {title: "Debit", field: "debit", width: 100, hozAlign: "right",
                  formatter: fmtMoney,
                  editor: "number",
@@ -326,151 +265,205 @@
                  editor: "number",
                  editorParams: {min: 0, step: 0.01, verticalNavigation: "editor"}},
                 {title: "", width: 40, hozAlign: "center", headerSort: false,
-                 formatter: actionFormatter,
-                 cellClick: function(e, cell) {
+                 formatter: deleteBtnFormatter,
+                 cellClick: function(e, cell){
                      var row = cell.getRow();
-                     var data = row.getData();
-                     if (!data.id) {
-                         if (data._dirty) {
-                             if (!confirm('Discard this unsaved row?')) return;
-                         }
+                     var d = row.getData();
+                     if (d._isNew || !d.id) {
                          row.delete();
-                         markDirty();
+                         updateSaveBar();
                          return;
                      }
-                     if (!confirm('Delete this transaction?')) return;
-                     fetch(KUKU_BASE + '/banks/cash-in-hand/' + data.id, {method: 'DELETE'})
-                         .then(function(r) {
-                             if (!r.ok) throw new Error('Delete failed');
+                     if (!confirm("Delete this transaction?")) return;
+                     fetch(BASE + "/banks/cash-in-hand/" + d.id, {method: "DELETE"})
+                         .then(function(r){
+                             if (!r.ok) throw new Error("Delete failed");
+                             if (pendingEdits[d.id]) delete pendingEdits[d.id];
                              row.delete();
                              loadSummary();
-                             showAlert('Transaction deleted.');
-                         }).catch(function(err) {
-                             showAlert('Failed to delete: ' + err.message, 'danger');
-                         });
+                             updateSaveBar();
+                             showAlert("Transaction deleted.");
+                         })
+                         .catch(function(err){ showAlert(err.message, "danger"); });
                  }}
-            ],
-            cellEdited: function(cell) {
-                var row = cell.getRow();
-                var data = row.getData();
-                var field = cell.getField();
-                var value = cell.getValue();
+            ]
+        });
 
-                data._dirty = true;
-                rowSetState(row, 'dirty');
-                markDirty();
+        table.on("cellEdited", handleCellEdited);
 
-                if (field === 'category_id') {
-                    if (data.id) {
-                        var catId = parseInt(value) || null;
-                        updateRow(row, 'category_id', catId, function() { loadSummary(); });
-                    }
-                    return;
-                }
+        table.on("tableBuilt", function(){
+            loadSummary();
+            updateSaveBar();
+        });
 
-                if (!data.id) {
-                    if (data._saving) return;
-                    createNewRow(row, function() {
-                        loadSummary();
-                    });
-                    return;
-                }
+        table.on("dataLoaded", function(){
+            loadSummary();
+            updateSaveBar();
+        });
+    }
 
-                updateRow(row, field, value, function() { loadSummary(); });
-            },
-            dataChanged: function() {
-                markDirty();
+    function saveAll() {
+        var promises = [];
+        table.getRows().forEach(function(r){
+            var d = r.getData();
+            if (d._isNew) {
+                d._saving = true;
+                applyRowStyle(r);
+                var payload = {
+                    txn_date: d.txn_date,
+                    value_date: d.value_date || d.txn_date,
+                    narration: d.narration || null,
+                    reference: d.reference || null,
+                    debit: parseFloat(d.debit) || 0,
+                    credit: parseFloat(d.credit) || 0,
+                    balance: parseFloat(d.balance) || 0,
+                    category_id: d.category_id ? parseInt(d.category_id) : null
+                };
+                promises.push(
+                    fetch(CREATE_URL, {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(payload)
+                    })
+                    .then(function(resp){
+                        if (!resp.ok) throw new Error("Save failed");
+                        return resp.json();
+                    })
+                    .then(function(created){
+                        d.id = created.id;
+                        d._isNew = false;
+                        d._saving = false;
+                        d._dirty = false;
+                        r.update(created);
+                        rowSaved(r);
+                    })
+                    .catch(function(err){
+                        d._saving = false;
+                        showAlert(err.message, "danger");
+                    })
+                );
+            } else if (d._dirty && pendingEdits[d.id]) {
+                d._saving = true;
+                applyRowStyle(r);
+                promises.push(
+                    fetch(BASE + "/banks/cash-in-hand/" + d.id, {
+                        method: "PUT",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify(pendingEdits[d.id])
+                    })
+                    .then(function(resp){
+                        if (!resp.ok) throw new Error("Update failed");
+                        return resp.json();
+                    })
+                    .then(function(updated){
+                        delete pendingEdits[d.id];
+                        d._saving = false;
+                        d._dirty = false;
+                        rowSaved(r);
+                    })
+                    .catch(function(err){
+                        d._saving = false;
+                        showAlert(err.message, "danger");
+                    })
+                );
             }
         });
 
-        table.on("tableBuilt", function() {
+        return Promise.all(promises).then(function(){
+            updateSaveBar();
             loadSummary();
-            markDirty();
+            showAlert("All changes saved.");
+        }).catch(function(err){
+            showAlert("Save failed: " + err.message, "danger");
         });
+    }
+
+    function discardAll() {
+        var toRemove = [];
+        table.getRows().forEach(function(r){
+            var d = r.getData();
+            if (d._isNew || (d._dirty && !d._saving)) {
+                toRemove.push(r);
+                if (d.id && pendingEdits[d.id]) delete pendingEdits[d.id];
+            }
+        });
+        toRemove.forEach(function(r){ r.delete(); });
+        updateSaveBar();
+        showAlert("Unsaved changes discarded.", "warning");
     }
 
     function loadFilters(selectedFy, selectedMonth) {
         var params = [];
-        if (selectedFy) params.push('selected_fy=' + selectedFy);
-        if (selectedMonth) params.push('selected_month=' + selectedMonth);
-        var url = KUKU_BASE + '/banks/cash-in-hand/filters' + (params.length ? '?' + params.join('&') : '');
-        htmx.ajax('GET', url, '#hx-filters');
+        if (selectedFy) params.push("selected_fy=" + selectedFy);
+        if (selectedMonth) params.push("selected_month=" + selectedMonth);
+        var url = BASE + "/banks/cash-in-hand/filters" + (params.length ? "?" + params.join("&") : "");
+        htmx.ajax("GET", url, "#hx-cih-filters");
     }
 
-    document.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail.target.id !== 'hx-filters') return;
-        var fySel = document.getElementById('cihSelFy');
-        var moSel = document.getElementById('cihSelMonth');
-        if (fySel && moSel) {
-            buildTable(parseInt(fySel.value), parseInt(moSel.value));
+    document.addEventListener("htmx:afterSwap", function(e){
+        if (e.detail.target.id !== "hx-cih-filters") return;
+        var fyEl = document.getElementById("cihSelFy");
+        var moEl = document.getElementById("cihSelMonth");
+        if (fyEl && moEl) {
+            buildTable(parseInt(fyEl.value), parseInt(moEl.value));
         }
     });
 
-    document.addEventListener('change', function(e) {
-        if (e.target.id === 'cihSelFy') {
+    document.addEventListener("change", function(e){
+        if (e.target.id === "cihSelFy") {
             loadFilters(e.target.value, null);
         }
-        if (e.target.id === 'cihSelMonth') {
-            var fySel = document.getElementById('cihSelFy');
-            if (fySel) {
-                buildTable(parseInt(fySel.value), parseInt(e.target.value));
-            }
+        if (e.target.id === "cihSelMonth") {
+            var fyEl = document.getElementById("cihSelFy");
+            if (fyEl) buildTable(parseInt(fyEl.value), parseInt(e.target.value));
         }
     });
 
-    document.getElementById('btnAddRow').addEventListener('click', function() {
+    document.getElementById("btn-cih-add").addEventListener("click", function(){
         if (!table) return;
-        var today = new Date().toISOString().split('T')[0];
+        var today = new Date().toISOString().split("T")[0];
         table.addRow({
             txn_date: today,
             value_date: today,
-            narration: '',
-            reference: '',
+            narration: "",
+            reference: "",
             debit: 0,
             credit: 0,
             balance: 0,
             category_id: null,
-            _saving: false,
-            _dirty: true
-        }, true).then(function(row) {
-            var cell = row.getCell('txn_date');
+            _isNew: true,
+            _dirty: false,
+            _saving: false
+        }, true).then(function(row){
+            var cell = row.getCell("txn_date");
             if (cell) cell.edit();
-            markDirty();
+            updateSaveBar();
         });
     });
 
-    document.getElementById('btnSaveAll').addEventListener('click', function() {
+    document.getElementById("btn-cih-save").addEventListener("click", function(){
         if (!table) return;
         var btn = this;
         btn.disabled = true;
-        saveAllPending().finally(function() {
-            btn.disabled = false;
-        });
+        saveAll().finally(function(){ btn.disabled = !(countDirty() > 0); });
     });
 
-    document.getElementById('btnDiscard').addEventListener('click', function() {
+    document.getElementById("btn-cih-discard").addEventListener("click", function(){
         if (!table) return;
-        discardUnsaved();
-        showAlert('Unsaved changes discarded.', 'warning');
+        discardAll();
     });
 
-    window.addEventListener('beforeunload', function(e) {
+    window.addEventListener("beforeunload", function(e){
         if (!table) return;
-        var hasDirty = false;
-        table.getRows().forEach(function(r) {
-            var d = r.getData();
-            if (d._dirty || !d.id) hasDirty = true;
-        });
-        if (hasDirty) {
+        if (countDirty() > 0) {
             e.preventDefault();
-            e.returnValue = '';
+            e.returnValue = "";
         }
     });
 
-    loadCategories().then(function() {
+    loadCategories().then(function(){
         loadFilters();
     });
 })();
 </script>
-{% endblock %}
 {% endblock %}

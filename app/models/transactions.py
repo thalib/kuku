@@ -48,27 +48,5 @@ class CashInHandUpdate(BaseModel):
     reference: Optional[str] = None
     debit: Optional[float] = Field(default=None, ge=0)
     credit: Optional[float] = Field(default=None, ge=0)
-    balance: Optional[float] = Field(default=None, ge=0)
-    category_id: Optional[int] = None
-
-
-class CashInHandCreate(BaseModel):
-    txn_date: str
-    value_date: Optional[str] = None
-    narration: Optional[str] = None
-    reference: Optional[str] = None
-    debit: float = Field(default=0, ge=0)
-    credit: float = Field(default=0, ge=0)
-    balance: float = Field(default=0, ge=0)
-    category_id: Optional[int] = None
-
-
-class CashInHandUpdate(BaseModel):
-    txn_date: Optional[str] = None
-    value_date: Optional[str] = None
-    narration: Optional[str] = None
-    reference: Optional[str] = None
-    debit: Optional[float] = Field(default=None, ge=0)
-    credit: Optional[float] = Field(default=None, ge=0)
-    balance: Optional[float] = Field(default=None, ge=0)
+    balance: Optional[float] = None
     category_id: Optional[int] = None
