@@ -1,5 +1,9 @@
 {% extends "layouts/base.html" %}
 
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid p-3 p-xl-4"
      hx-get="{{ root_path }}/content" hx-trigger="load" hx-swap="innerHTML">
