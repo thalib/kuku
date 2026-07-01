@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import logging
 import secrets
 import time
 
@@ -174,9 +175,8 @@ async def backup_import(request: Request, token: str = Form(...), sections: str 
             section_list = selected
 
     try:
-        async with asyncio.timeout(_IMPORT_LOCK_TIMEOUT):
-            await _import_lock.acquire()
-    except TimeoutError:
+        await asyncio.wait_for(_import_lock.acquire(), timeout=_IMPORT_LOCK_TIMEOUT)
+    except asyncio.TimeoutError:
         return templates.TemplateResponse(
             request,
             "partials/backup_error.html",

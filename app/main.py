@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from app.config import APP_NAME, APP_ROOT_PATH
+from app.config import APP_NAME, APP_ROOT_PATH, ALLOWED_HOSTS, ALLOWED_HOSTS
 from app.database import init_db, close_db
 from app.routers import backup, bank_accounts, bank_transactions, cash_in_hand, categories, rules, dashboard, reports
 from app.utils.templates import templates
@@ -43,7 +43,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app = FastAPI(title="Kuku", lifespan=lifespan, root_path=APP_ROOT_PATH)
 
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0"])
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 

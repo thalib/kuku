@@ -15,6 +15,8 @@ APP_PORT = int(os.getenv("APP_PORT", "8000"))
 DB_PATH = os.getenv("DB_PATH", "kuku.db")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Kuku")
 APP_ROOT_PATH = os.getenv("APP_ROOT_PATH", "")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,testserver").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,testserver").split(",")
 
 NAV_GROUPS = [
     {
