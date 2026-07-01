@@ -67,17 +67,6 @@ async def update_rule(db: aiosqlite.Connection, rule_id: int, data: RuleUpdate) 
     if cursor.rowcount == 0:
         return None
     return await get_rule(db, rule_id)
-    sets.append("updated_at = ?")
-    vals.append(_now())
-    vals.append(rule_id)
-    cursor = await db.execute(
-        f"UPDATE classification_rules SET {', '.join(sets)} WHERE id = ?",
-        vals,
-    )
-    await db.commit()
-    if cursor.rowcount == 0:
-        return None
-    return await get_rule(db, rule_id)
 
 
 async def toggle_rule(db: aiosqlite.Connection, rule_id: int) -> dict | None:

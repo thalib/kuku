@@ -9,6 +9,7 @@ from app.config import APP_NAME, NAV_GROUPS
 from app.database import get_db
 from app.services import cash_in_hand as cash_svc
 from app.services import transactions as tx_svc
+from app.models.transactions import CashInHandCreate, CashInHandUpdate
 from app.utils.nav import mark_active_nav
 from app.utils.templates import templates
 
@@ -115,11 +116,13 @@ async def cash_in_hand_categories():
 @router.post("/cash-in-hand")
 async def cash_in_hand_create(request: Request):
     db = await get_db()
-    body = await request.json()
-    if not body.get("txn_date"):
-        raise HTTPException(400, "txn_date is required")
     try:
-        txn = await cash_svc.create_transaction(db, body)
+        body = await request.json()
+        data = CashInHandCreate(**body)
+    except Exception:
+        raise HTTPException(400, "Invalid input. Please check all required fields.")
+    try:
+        txn = await cash_svc.create_transaction(db, data.model_dump())
     except Exception as e:
         logger.exception("Failed to create cash-in-hand transaction")
         raise HTTPException(400, str(e))
@@ -129,8 +132,12 @@ async def cash_in_hand_create(request: Request):
 @router.put("/cash-in-hand/{txn_id}")
 async def cash_in_hand_update(txn_id: int, request: Request):
     db = await get_db()
-    body = await request.json()
-    txn = await cash_svc.update_transaction(db, txn_id, body)
+    try:
+        body = await request.json()
+        data = CashInHandUpdate(**body)
+    except Exception:
+        raise HTTPException(400, "Invalid input.")
+    txn = await cash_svc.update_transaction(db, txn_id, data.model_dump(exclude_unset=True))
     if not txn:
         raise HTTPException(404, "Transaction not found")
     return JSONResponse(txn)

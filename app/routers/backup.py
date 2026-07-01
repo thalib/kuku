@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import logging
 import secrets
 import time
 
@@ -41,7 +42,7 @@ def _cleanup_expired_tokens():
         _backup_tokens_meta.pop(t, None)
 
 
-def _make_token(payload: dict) -> str:
+def _make_token() -> str:
     _cleanup_expired_tokens()
     token = secrets.token_urlsafe(32)
     _backup_tokens_meta[token] = time.monotonic()
@@ -72,10 +73,22 @@ def _parse_upload(raw: bytes) -> dict:
     return payload
 
 
+_BACKUP_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+
+
+_BACKUP_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+
+
 @router.post("/backup/analyze", response_class=HTMLResponse)
 async def backup_analyze(request: Request, file: UploadFile = Form(...)):
     try:
         raw = await file.read()
+        if len(raw) > _BACKUP_MAX_UPLOAD_SIZE:
+            return templates.TemplateResponse(
+                request,
+                "partials/backup_error.html",
+                {"error": "File size exceeds 50MB limit."},
+            )
         payload = _parse_upload(raw)
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
         return templates.TemplateResponse(
@@ -128,9 +141,8 @@ async def backup_analyze(request: Request, file: UploadFile = Form(...)):
             {"error": "Nothing to import. All records in the backup already exist in the database."},
         )
 
-    token = _make_token(payload)
+    token = _make_token()
     _pending_backups[token] = payload
-    _backup_tokens_meta[token] = time.monotonic()
 
     return templates.TemplateResponse(
         request,
@@ -163,9 +175,8 @@ async def backup_import(request: Request, token: str = Form(...), sections: str 
             section_list = selected
 
     try:
-        async with asyncio.timeout(_IMPORT_LOCK_TIMEOUT):
-            await _import_lock.acquire()
-    except TimeoutError:
+        await asyncio.wait_for(_import_lock.acquire(), timeout=_IMPORT_LOCK_TIMEOUT)
+    except asyncio.TimeoutError:
         return templates.TemplateResponse(
             request,
             "partials/backup_error.html",

@@ -102,7 +102,8 @@ async def import_form(request: Request, account_id: int):
 
 @router.post("/transactions/import/preview", response_class=HTMLResponse)
 async def import_preview(request: Request, account_id: int = Form(...), file: UploadFile = File(...)):
-    if file.size and file.size > 10 * 1024 * 1024:
+    raw_bytes = await file.read()
+    if len(raw_bytes) > 10 * 1024 * 1024:
         return templates.TemplateResponse(
             request, "partials/tx_import_preview.html",
             {"error": "File size exceeds 10MB limit.", "transactions": [], "account_id": account_id, "count": 0},
@@ -113,13 +114,12 @@ async def import_preview(request: Request, account_id: int = Form(...), file: Up
 
     try:
         if ext == "csv":
-            content = (await file.read()).decode("utf-8-sig")
+            content = raw_bytes.decode("utf-8-sig")
             txns = tx_svc.parse_csv_rows(content)
         elif ext in ("xls", "xlsx"):
-            data = await file.read()
-            txns = tx_svc.parse_excel_bytes(data, filename)
+            txns = tx_svc.parse_excel_bytes(raw_bytes, filename)
         else:
-            content = (await file.read()).decode("utf-8-sig")
+            content = raw_bytes.decode("utf-8-sig")
             txns = tx_svc.parse_csv_rows(content)
     except Exception as e:
         logger.exception("File parse error during import preview")

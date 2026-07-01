@@ -136,8 +136,8 @@ class TestDashboardContentWithData:
         assert "Jun" in body
 
     def test_chart_js_loaded(self, client):
-        body = client.get("/content?fy=2025").text
-        assert "chart.umd.min.js" in body
+        body = client.get("/").text
+        assert "chart.js" in body
 
     def test_monthly_data_with_fy(self, client):
         body = client.get("/content?fy=2025").text

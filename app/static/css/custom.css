@@ -1,3 +1,43 @@
+:root { --kuku-sidebar-w: 248px; }
+body { overflow: hidden; }
+.app-navbar { position: sticky; top: 0; z-index: 1040; }
+.app-body { display: flex; flex: 1; overflow: hidden; }
+.app-sidebar-wrap {
+    width: var(--kuku-sidebar-w);
+    flex-shrink: 0;
+    transition: width 200ms ease;
+    overflow: hidden;
+    border: none;
+}
+.app-sidebar-wrap.closed { width: 0 !important; border: none !important; }
+.app-sidebar {
+    width: var(--kuku-sidebar-w);
+    height: 100%;
+    flex-shrink: 0;
+}
+.app-sidebar-link { white-space: nowrap; }
+.app-content { flex: 1; overflow-y: auto; }
+
+:root { --kuku-sidebar-w: 248px; }
+body { overflow: hidden; }
+.app-navbar { position: sticky; top: 0; z-index: 1040; }
+.app-body { display: flex; flex: 1; overflow: hidden; }
+.app-sidebar-wrap {
+    width: var(--kuku-sidebar-w);
+    flex-shrink: 0;
+    transition: width 200ms ease;
+    overflow: hidden;
+    border: none;
+}
+.app-sidebar-wrap.closed { width: 0 !important; border: none !important; }
+.app-sidebar {
+    width: var(--kuku-sidebar-w);
+    height: 100%;
+    flex-shrink: 0;
+}
+.app-sidebar-link { white-space: nowrap; }
+.app-content { flex: 1; overflow-y: auto; }
+
 .tr-row-dirty > td { background-color: #fff8e1 !important; }
 .tr-row-dirty { border-left: 3px solid #ffc107 !important; }
 .badge-kuku-income    { background-color: #198754; color: #fff; }
