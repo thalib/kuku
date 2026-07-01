@@ -1,4 +1,4 @@
-<tr id="tx-row-{{ txn['id'] }}" data-txn-id="{{ txn['id'] }}">
+<tr id="tx-row-{{ txn['id'] }}" data-txn-id="{{ txn['id'] }}"{% if txn.get('cat_name') in ('Uncategorized Expense', 'Uncategorized Income') %} class="table-info"{% endif %}>
     <td class="ps-3 small text-nowrap">{{ txn["txn_date"] }}</td>
     <td class="small" style="white-space:normal">
         <div>{{ txn["narration"] or "\u2014" }}</div>

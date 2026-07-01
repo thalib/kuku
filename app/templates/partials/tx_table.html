@@ -13,9 +13,13 @@
                 <div class="small text-muted">Net</div>
                 <div class="fw-semibold">{{ "{:,.2f}".format(summary["total_credit"] - summary["total_debit"]) }}</div>
             </div>
-            <div class="col-md-3">
-                <div class="small text-muted">Transactions</div>
+            <div class="col">
+                <div class="small text-muted">Total</div>
                 <div class="fw-semibold">{{ summary["txn_count"] }}</div>
+            </div>
+            <div class="col">
+                <div class="small text-muted">Uncategorized</div>
+                <div class="fw-semibold">{{ uncategorized_count }}</div>
             </div>
         </div>
     </div>

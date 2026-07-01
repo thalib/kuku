@@ -75,6 +75,10 @@ async def transactions_table(request: Request, account_id: int, fy: int, month: 
     summary = await tx_svc.get_summary(db, account_id, calendar_year, month)
     account = await bank_svc.get_account(db, account_id)
     month_label = f"{month_abbr[month]} {calendar_year}"
+    uncategorized_count = sum(
+        1 for txn in txns
+        if txn.get('cat_name') in ('Uncategorized Expense', 'Uncategorized Income')
+    )
     ctx = {
         "transactions": txns,
         "categories": categories,
@@ -84,6 +88,7 @@ async def transactions_table(request: Request, account_id: int, fy: int, month: 
         "fy": fy,
         "month": month,
         "month_label": month_label,
+        "uncategorized_count": uncategorized_count,
     }
     return templates.TemplateResponse(request, "partials/tx_table.html", ctx)
 
